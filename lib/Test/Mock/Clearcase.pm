@@ -64,6 +64,10 @@ component:Composant_Mandataires@/vobs/PVOB_CHOPIN
 component:GDC_Prospect@/vobs/PVOB_CHOPIN
 ';
 
+Readonly::Array my @var_valid_streams => (
+    'stream:PARTICULIER_Mainline@/vobs/PVOB_MA',
+    'stream:OPE_R9.1_Ass@/vobs/PVOB_MA',
+    );
 
 #------------------------------------------------
 # components_Nxp()
@@ -253,8 +257,11 @@ SWITCH_DESC : {
 #warn ">>\n";
 
     # a valid stream
-    if ( $parms[0] eq '-s' and $parms[1] eq 'stream:OPE_R9.1_Ass@/vobs/PVOB_MA' ) {
-        $s = 'OPE_R9.1_Ass
+    if ( $parms[0] eq '-s' and grep { $_ eq $parms[1] } @var_valid_streams ) {
+        $s = $parms[1];
+        $s =~ s/^stream://;
+        $s =~ s/\@\/.*$//;
+        $s .= '
 ';
         $e = 0;
         last;
@@ -267,6 +274,16 @@ SWITCH_DESC : {
         $e = 1;
         last;
     }
+
+    # unplanned stream
+    if ( $parms[0] eq '-s' and (substr($parms[1],0,7) eq 'stream:' ) ) {
+        my $stream = $parms[1];
+        $stream =~ s/^stream://; $stream =~ s/\@.+$//;
+        $s = 'cleartool: Error: stream not found: "' . $stream . '".
+';
+        $e = 1;
+    }
+
 
     }; # SWITCH_DESC
 
@@ -459,6 +476,7 @@ sub ct_mkstream
     my $e = 0;
     my $s = '';
 
+warn ">>>> $_\n" for @parms;
 SWITCH_mkstream: {
       # a valid case
 
@@ -555,6 +573,16 @@ sub mocked_cleartool
         my @first_parms = split(/\s+/, $fparms);
         unshift @parms, @first_parms;
     }
+    # cleanup the parms by splitting them and removing extra spaces
+    my @parms2 = ();
+    for my $p ( @parms ) {
+        my @sub_parms = split /\s+/, $p;
+        for my $sp ( @sub_parms ) {
+            $sp =~ s/^\s+//; $sp =~ s/\s+$//;
+            push @parms2, $sp if length $sp;
+        }
+    }
+    @parms = @parms2;
 
     return ct_bad_cmd()        if ( $cmd eq 'not_a_ct_command' );
     return ct_ver()            if ( $cmd eq '-ver'     );

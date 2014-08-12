@@ -76,10 +76,13 @@ $r = Migrations::Clearcase::compose_baseline('PARTICULIER_Mainline', '1.18.8.0-S
 ok(!defined $r, 'Migrations::Clearcase::compose_baseline("PARTICULIER_Mainline", "1.18.8.0-SNAPSHOT");');
 $r = Migrations::Clearcase::compose_baseline('PARTICULIER_Mainline@/vobs/PVOB_MA', '1.18.0-SNAPSHOT');
 ok(!defined $r, 'Migrations::Clearcase::compose_baseline("PARTICULIER_Mainline@/vobs/PVOB_MA", 1.18.0-SNAPSHOT");');
+
+
 $r = Migrations::Clearcase::compose_baseline('PARTICULIER_Mainline@/vobs/PVOB_MA', '1.18.8.0-SNAPSHOT');
 
 my $valid_baseline = '1.18.8.0-SNAPSHOT_Donnees_Client@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_socle-maven-particulier@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Equipement@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_OME_TransfertPEA@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Tableau_de_Bord@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Mandataires@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Credits@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Mifid@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Epargne@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_ExtensionTransfo@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Cloture@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Compte_Courant@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_dossier-client@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Composant_Mifid@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Credits_CT@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_par-communs@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Epargne_CERS@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Assurance_IARD@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Package@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Epargne_Logement@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Titres@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Cartes_Bancaires@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_bel@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Services_en_Lignes_1@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Services_en_Lignes_2@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Client@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Patrimoine@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Contrat@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_integration-maven-particulier@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_Composant_Mandataires@/vobs/PVOB_MA,1.18.8.0-SNAPSHOT_GDC_Prospect@/vobs/PVOB_MA';
 
+#diag("r = " .($r //'undef'));
 ok((defined $r and $r eq $valid_baseline), 'Migrations::Clearcase::compose_baseline("PARTICULIER_Mainline@/vobs/PVOB_MA", "1.18.8.0-SNAPSHOT");');
 @r = Migrations::Clearcase::compose_baseline('PARTICULIER_Mainline@/vobs/PVOB_MA', '1.18.8.0-SNAPSHOT');
 ok((defined $r and scalar@r == 31), 'Migrations::Clearcase::compose_baseline("PARTICULIER_Mainline@/vobs/PVOB_MA", 1.18.8.0-SNAPSHOT");');
@@ -96,10 +99,20 @@ ok($r==0, 'Migrations::Clearcase::check_baseline("1.18.8.0-SNAPSHOT_Donnees_Clie
 
 # test make_stream()
 $r = Migrations::Clearcase::make_stream();
+ok(!defined $r, 'Migrations::Clearcase::make_stream()');
 $r = Migrations::Clearcase::make_stream('no_baseline');
+ok(!defined $r, 'Migrations::Clearcase::make_stream("no_baseline")');
 $r = Migrations::Clearcase::make_stream(undef,'no_parent');
+ok(!defined $r, 'Migrations::Clearcase::make_stream(undef,"no_parent")');
 $r = Migrations::Clearcase::make_stream('fake_parent','fake_baseline');
-$r = Migrations::Clearcase::make_stream('PARTICULIER_Mainline@/vobs/PVOB_MA','fake_baseline');
+ok(!defined $r, 'Migrations::Clearcase::make_stream("fake_parent","fake_baseline")');
+@r = Migrations::Clearcase::make_stream('PARTICULIER_Mainline@/vobs/PVOB_MA','fake_baseline');
+ok(!defined $r[0], 'Migrations::Clearcase::make_stream("PARTICULIER_Mainline@/vobs/PVOB_MA","fake_baseline")');
+diag("\$r[0] : [" . ($r[0] // 'undef') . "]");
+if ( scalar @r > 1 ){
+    diag("scalar \@r : " . (scalar @r));
+    diag("\$r[1] : [" . $r[1] . "]");
+}
 $r = Migrations::Clearcase::make_stream('PARTICULIER_Mainline@/vobs/PVOB_MA','existing_new_name','_Mainline');
 $r = Migrations::Clearcase::make_stream('fake_parent','fake_baseline');
 
