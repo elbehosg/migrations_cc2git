@@ -1,0 +1,77 @@
+NAME
+ 
+migration_cc2git.pl - migrate (ie import) a "baseline" from a Clearcase VOB to a Git repository
+
+ 
+VERSION
+ 
+version 0.0.1
+ 
+SYNOPSIS
+ 
+
+  migrationcc2git.pl [options]
+
+  --help, --usage, -? : display this help
+
+  Mandatory parameters:
+
+    --stream stream@pvob : le stream source
+    --baseline X.Y.Z-SNAPSHOT : le nom « générique » de la baseline
+    --repo depot : le dépôt Git vers lequel les données migrent
+    --branch branche : la branche Git qui reçoit les données
+    --output file : fichier de log (si file = - : STDOUT+STDERR)
+        Si absent : message d’erreur sur STDERR
+
+  Optional parameters:
+
+    --bls BL1,BL2,BL3 : la liste des « baseline x composant » séparés par une ,
+        Défaut : est calculée en fonction de --baseline
+    --interactive : on valide chaque étape
+        Défaut : pas interactif
+    --preview : affiche les opérations sans les exécuter
+        Défaut : les opérations sont exécutées
+    --steps : indique les étapes à exécuter (« depuis le début jusqu’à » ou « ces steps-là » ?)
+        Défaut : toutes les étapes sont exécutées
+    --reset : fait un peu de ménage pour permettre de revenir « à l’état initial » après avoir utilisé –steps
+        Défaut : on ne fait pas reset
+    --push : fait le push après le commit (« --push remote branch » ou juste « --push » ?)
+        Défaut : pas de push
+        credentials sur le serveur de référence ?
+    --input file : fichier contenant les paramètres de la ligne de commande (« les » ou « des » ?)
+        Défaut : pas de valeur par défaut
+        Si un paramètre est défini dans --input et sur la ligne de commande, le paramètre de la ligne de commande a la priorité.
+    --verbose : pour avoir tout les logs
+        verbosity à définir avec et sans le flag
+
+
+DESCRIPTION
+
+migration_cc2git.pl uses a stream and a named baseline to create a view,
+extract files and directories and copies that to a Git repository,
+and commit this addition.
+
+A tag is set on Git and a label/attribute/marker/whatever indicates that this
+baseline in Clearcase has been imported.
+
+ 
+BUGS
+ 
+None reported.  (but give me the time to finish the script :-) )
+ 
+SUPPORT
+ 
+You can find documentation for this module with the perldoc command.
+ 
+    perldoc migrationcc2git.pl
+ 
+ 
+AUTHOR
+ 
+Laurent Boivin, C<< <laurent.boivin-ext at socgen.com> >>
+ 
+COPYRIGHT AND LICENSE
+ 
+I've no idea
+ 
+
