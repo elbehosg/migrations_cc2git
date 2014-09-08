@@ -1,11 +1,13 @@
 package Test::Mock::Clearcase;
 
-use 5.008008;
+#use 5.008008;
+use v5.18;
 use strict;
 use warnings;
 
 use Test::Mock::Simple;
 use Readonly;
+use List::MoreUtils qw ( none );
 
 our $VERSION = '0.0.1';
 
@@ -20,6 +22,12 @@ our $VERSION = '0.0.1';
 #    to update the "seed" than any single value.
 #
 #------------------------------------------------
+
+Readonly::Scalar my $DEBUG => 0;
+sub _warn {
+    warn @_ if $DEBUG;
+}
+
 
 #
 # cleartool desc -fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/PVOB_MA
@@ -68,6 +76,13 @@ Readonly::Array my @var_valid_streams => (
     'stream:PARTICULIER_Mainline@/vobs/PVOB_MA',
     'stream:OPE_R9.1_Ass@/vobs/PVOB_MA',
     );
+#------------------------------------------------
+# streams()
+#------------------------------------------------
+sub streams
+{
+    return wantarray ? @var_valid_streams : ( join "\n",@var_valid_streams);
+}
 
 #------------------------------------------------
 # components_Nxp()
@@ -94,10 +109,48 @@ Readonly::Scalar my $var_baselines => '1.18.8.0-SNAPSHOT';
 #------------------------------------------------
 sub baselines
 {
-   my @bls = map { $var_baselines . '_' . $_ . '@/vobs/PVOB_MA' } components_Np();
-   return wantarray ? @bls : ( join "\n", @bls );
+    my @bls = ();
+    my @no_bls = qw ( rdv-relance-client-part-ejb
+                      ficp-war
+                      ficp-ejb
+                      assurance-mrh
+                      bad
+                      tracabilite-assurance
+                      bilan-epargne
+                    );
+    for my $c ( components_Np() ) {
+        unless ( grep { $_ eq $c } @no_bls ) {
+            push @bls, $var_baselines . '_' . $c . '@/vobs/PVOB_MA';
+        }
+    }
+    return wantarray ? @bls : ( join "\n", @bls );
 }
 
+Readonly::Array my @var_valid_dyn_views => qw (
+    x121237_PARTICULIER_t2_2014_p1_patch_dyn
+    CCATIadm_PARTICULIER_Mainline
+    );
+Readonly::Array my @var_valid_snap_views => qw (
+    x124291_PARTICULIER_int
+    x117246_PARTICULIER_int_2
+    );
+#------------------------------------------------
+# dynamic_views()
+# snapshot_views()
+# views()
+#------------------------------------------------
+sub dynamic_views
+{
+    return wantarray ? @var_valid_dyn_views : ( join "\n",@var_valid_dyn_views );
+}
+sub snapshot_views
+{
+    return wantarray ? @var_valid_snap_views : ( join "\n", @var_valid_snap_views);
+}
+sub views
+{
+    return wantarray ? (@var_valid_dyn_views, @var_valid_snap_views) : ( join "\n",@var_valid_dyn_views, @var_valid_snap_views);
+}
 
 
 
@@ -252,12 +305,12 @@ SWITCH_DESC : {
         last;
     }
 
-#warn ">>\n";
-#warn ">> [$_]\n" for (@parms);
-#warn ">>\n";
+#_warn ">>\n";
+#_warn ">> [$_]\n" for (@parms);
+#_warn ">>\n";
 
     # a valid stream
-    if ( $parms[0] eq '-s' and grep { $_ eq $parms[1] } @var_valid_streams ) {
+    if ( $parms[0] eq '-s' and grep { $_ eq $parms[1] } streams() ) {
         $s = $parms[1];
         $s =~ s/^stream://;
         $s =~ s/\@\/.*$//;
@@ -305,44 +358,6 @@ SWITCH_LSSTREAM: {
     # a valid case
     if ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/PVOB_MA" ) {
         $s = components_NXp();
-my $to_remove_after_successfull_tests='component:Donnees_Client@/vobs/PVOB_CHOPIN
-component:socle-maven-particulier@/vobs/PVOB_CHOPIN
-component:Equipement@/vobs/PVOB_CHOPIN
-component:rdv-relance-client-part-ejb@/vobs/PVOB_MA
-component:ficp-war@/vobs/PVOB_CHOPIN
-component:OME_TransfertPEA@/vobs/PVOB_CHOPIN
-component:Tableau_de_Bord@/vobs/PVOB_CHOPIN
-component:ficp-ejb@/vobs/PVOB_CHOPIN
-component:Mandataires@/vobs/PVOB_CHOPIN
-component:assurance-mrh@/vobs/PVOB_MA
-component:GDC_Credits@/vobs/PVOB_CHOPIN
-component:Mifid@/vobs/PVOB_CHOPIN
-component:Epargne@/vobs/PVOB_CHOPIN
-component:GDC_ExtensionTransfo@/vobs/PVOB_CHOPIN
-component:GDC_Cloture@/vobs/PVOB_CHOPIN
-component:GDC_Compte_Courant@/vobs/PVOB_CHOPIN
-component:dossier-client@/vobs/PVOB_CHOPIN
-component:Composant_Mifid@/vobs/PVOB_CHOPIN
-component:GDC_Credits_CT@/vobs/PVOB_CHOPIN
-component:par-communs@/vobs/PVOB_CHOPIN
-component:GDC_Epargne_CERS@/vobs/PVOB_CHOPIN
-component:bad@/vobs/PVOB_MA
-component:Assurance_IARD@/vobs/PVOB_CHOPIN
-component:GDC_Package@/vobs/PVOB_CHOPIN
-component:Epargne_Logement@/vobs/PVOB_CHOPIN
-component:GDC_Titres@/vobs/PVOB_CHOPIN
-component:tracabilite-assurance@/vobs/PVOB_CHOPIN
-component:Cartes_Bancaires@/vobs/PVOB_CHOPIN
-component:bel@/vobs/PVOB_CHOPIN
-component:GDC_Services_en_Lignes_1@/vobs/PVOB_CHOPIN
-component:Services_en_Lignes_2@/vobs/PVOB_CHOPIN
-component:GDC_Client@/vobs/PVOB_CHOPIN
-component:Patrimoine@/vobs/PVOB_CHOPIN
-component:GDC_Contrat@/vobs/PVOB_CHOPIN
-component:integration-maven-particulier@/vobs/PVOB_CHOPIN
-component:bilan-epargne@/vobs/PVOB_MA
-component:Composant_Mandataires@/vobs/PVOB_CHOPIN
-component:GDC_Prospect@/vobs/PVOB_CHOPIN';
         last;
     }
 
@@ -409,40 +424,7 @@ sub ct_lsbl
 SWITCH_LSBL: {
 
     # a valid case
-    my @valid_baselines = qw (
-1.18.8.0-SNAPSHOT_Donnees_Client@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_socle-maven-particulier@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Equipement@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_OME_TransfertPEA@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Tableau_de_Bord@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Mandataires@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Credits@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Mifid@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Epargne@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_ExtensionTransfo@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Cloture@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Compte_Courant@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_dossier-client@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Composant_Mifid@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Credits_CT@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_par-communs@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Epargne_CERS@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Assurance_IARD@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Package@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Epargne_Logement@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Titres@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Cartes_Bancaires@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_bel@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Services_en_Lignes_1@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Services_en_Lignes_2@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Client@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Patrimoine@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Contrat@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_integration-maven-particulier@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_Composant_Mandataires@/vobs/PVOB_MA
-1.18.8.0-SNAPSHOT_GDC_Prospect@/vobs/PVOB_MA
-);
-
+    my @valid_baselines = baselines();
     for my $i ( @valid_baselines ) {
         if ( $parms[1] eq $i ) {
             $s = $i;
@@ -469,20 +451,113 @@ cleartool: Error: Unable to list baseline.
 
 
 #------------------------------------------------
+sub ct_lsview
+{
+    my @parms = @_;
+
+    my $e = 9999;
+    my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_lsview()';
+
+SWITCH_LSVIEW: {
+
+        my ($short, $long, $uuid) = (0,0,0);
+        if ( $parms[0] eq '-s' ) {
+            $short = 1;
+            shift @parms;
+        } elsif ( $parms[0] eq '-l' ) {
+            $long = 1;
+            shift @parms;
+        } elsif ( $parms[0] eq '-uuid' ) {
+            $uuid = 1;
+            shift @parms;
+        } elsif ( substr($parms[0],0,1) eq '-' ) {
+            # options not implemented
+            last;
+        }
+
+        if ( $long or $uuid ) {
+            # shouldn't be that hard to implement, but not done so far
+            last;
+        }
+
+        # a valid case
+        if ( grep { $_ eq $parms[0] } views() ) {
+            $e = 0;
+            if ( $short ) {
+                $s = $parms[0];
+            } else {
+                if ( index($parms[0], '_') != -1 ) {
+                    my $u = substr($parms[0],0,index($parms[0], '_'));
+                    $s = '  ' . $parms[0] .  ' /Clearcase/views/' . $u . '/' . $parms[0];
+                }
+                if ( grep { $_ eq $parms[0] } dynamic_views() ) {
+                    $s .= ".vws\n";
+                } else {
+                    $s .= "/.view.stg\n";
+                }
+            }
+            last;
+        }
+
+        # not a valid view tag in the current region
+        $s = 'cleartool: Error: No matching entries found for view tag "'.$parms[0].'".
+';
+        $e = 1;
+        last;
+
+    }; # SWITCH_LSVIEW
+
+    return wantarray ? ($e, split (/\n/, $s)) : $s;
+}
+# end of ct_lsview()
+#------------------------------------------------
+
+
+#------------------------------------------------
 sub ct_mkstream
 {
     my @parms = @_;
 
-    my $e = 0;
-    my $s = '';
+    my $e = 9999;
+    my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_mkstream()';
 
-warn ">>>> $_\n" for @parms;
+_warn ">> IN  ct_mkstream\n";
+
+#_warn ">>>> $_\n" for @parms;
 SWITCH_mkstream: {
-      # a valid case
+    # fake baseline
+    if ( $parms[4] eq 'fake_baseline' ) {
+        $e = 1;
+        $s = 'cleartool: Error: Baseline not found: "' . $parms[4] .'".
+cleartool: Error: Unable to create stream "' . $parms[5] . '".
+';
+        last ;
+    }
 
-     1;
+    # a valid case
+    if ( grep { $_ eq $parms[1] } streams() ) {
+
+        # control the baselines
+        my @bls = split /,/, $parms[4];
+        for my $b ( @bls ) {
+            if ( none { $_ eq $b } baselines() ) {
+                $e = 1;
+                $s = 'cleartool: Error: Baseline not found: "' . $parms[4] .'".
+cleartool: Error: Unable to create stream "' . $parms[5] . '".
+';
+                last SWITCH_mkstream;
+            }
+        }
+
+        $e = 0;
+        $s = 'Created stream "'. $parms[1] . '".
+';
+        last ;
+    }
+
     };  # SWITCH_mkstream
 
+_warn ">> OUT ct_mkstream\n";
     return wantarray ? ($e, split (/\n/, $s)) : $s;
 }
 # end of ct_mkstream()
@@ -493,19 +568,175 @@ SWITCH_mkstream: {
 sub ct_mkview
 {
     my @parms = @_;
+    # expects : ('-tag', $tag, (defined $stream ? '-stream',$stream.' ' : '' ), '-stgloc', $stgloc)
 
-    my $e = 0;
-    my $s = '';
+    my $e = 9999;
+    my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_mkview()';
+
+_warn ">> IN  ct_mkview\n";
+
+#_warn ">>>> $_\n" for @parms;
 
 SWITCH_mkview: {
-      # a valid case
+    if ( (scalar @parms != 4) and (scalar @parms != 6) ) {
+        last;
+    }
 
-     1;
+    if ( $parms[0] ne '-tag' ) {
+        $e = 1;
+        $s = 'cleartool: Error: View tag must be specified.
+Usage: mkview -tag dynamic-view-tag [-tcomment tag-comment] [-tmode text-mode]
+              [-region network-region | -stream stream-selector]
+              [-shareable_dos | -nshareable_dos] [-cachesize size]
+              [-ln link-storage-to-dir-pname] [-ncaexported]
+              { -stgloc {view-stgloc-name | -auto}
+              | [-host hostname -hpath host-stg-pname -gpath global-stg-pname]
+                dynamic-view-storage-pname
+              }
+       mkview -snapshot [-tag snapshot-view-tag]
+              [-tcomment tag-comment] [-tmode text-mode]
+              [-cachesize size] [-ptime] [-stream stream-selector]
+              [ -stgloc view-stgloc-name
+              | -colocated_server [-host hostname -hpath host-snapshot-view-pname -gpath global-snapshot-view-pname]
+              | -vws view-storage-pname [-host hostname -hpath host-stg-pname -gpath global-stg-pname]
+              ] snapshot-view-pname
+';
+        last;
+    }
+    if ( (scalar @parms == 4) and (scalar $parms[2] ne '-stgloc' )) {
+        last;
+    }
+    if ( (scalar @parms == 6) and (scalar $parms[2] ne '-stream' )) {
+        last;
+    }
+    if ( (scalar @parms == 6) and (scalar $parms[4] ne '-stgloc' )) {
+        last;
+    }
+
+    my ($tag, $stream, $stgloc) = ($parms[1], undef, $parms[-1]);
+    if ( scalar @parms == 6) {
+        $stream = $parms[3];
+    }
+
+    # bad stream
+    if ( defined $stream and ( ! grep { $_ eq $stream } streams() ) ) {
+        $e = 1;
+        $s = 'cleartool: Error: Unable to find stream "' . $stream . '".
+cleartool: Error: Cannot attach view to stream "' . $stream . '".
+';
+        last;
+    }
+
+    # view already exists
+    if ( grep { $_ eq $tag } views() ) {
+        $e = 1;
+        $s = 'cleartool: Error: A registry entry already exists for "' . $tag . '".
+';
+        last;
+    }
+
+    # stgloc does not exist
+    if ( $stgloc ne 'viewstgloc' ) {
+        $e = 1;
+        $s = 'cleartool: Error: No Server Storage Location entry named "'.$stgloc.'".
+';
+        last;
+    }
+
+    # a valid case
+    my $u = undef;
+    if ( index($tag, '_') != -1 ) {
+        $u = substr($tag,0,index($tag, '_'));
+    }
+    if ( defined $stream ) {
+        $e = 0;
+        $s = 'Created view.
+Host-local path: dgcl04.info.si.socgen:/Clearcase/views/'.($u//'x120248').'/'. $tag . '.vws
+Global path:     /Clearcase/views/x120248/'. $tag . '.vws
+It has the following rights:
+User : '.sprintf("%-8s : rwx",($u//'x120248')).'
+Group: cc-gcl   : r-x
+Other:          : r-x
+';
+        last;
+
+    } else {
+        $e = 0;
+        $s = 'Created view.
+Host-local path: dgcl04.info.si.socgen:/Clearcase/views/'.($u//'x120248').'/'. $tag . '.vws
+Global path:     /Clearcase/views/x120248/'. $tag . '.vws
+It has the following rights:
+User : '.sprintf("%-8s : rwx",($u//'x120248')).'
+Group: cc-gcl   : r-x
+Other:          : r-x
+';
+        last;
+    }
+
+    last;
     };  # SWITCH_mkview
 
+_warn ">> OUT ct_mkview\n";
     return wantarray ? ($e, split (/\n/, $s)) : $s;
 }
 # end of ct_mkview()
+#------------------------------------------------
+
+
+#------------------------------------------------
+sub ct_rmview
+{
+    my @parms = @_;
+    # expects : ('-tag', $tag)
+
+    my $e = 9999;
+    my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_rmview()';
+
+_warn ">> IN  ct_rmview\n";
+
+_warn ">>>> $_\n" for @parms;
+
+SWITCH_rmview: {
+    if (scalar @parms != 2) {
+        last;
+    }
+
+    if ( $parms[0] ne '-tag' ) {
+        last;
+    }
+
+    my ($tag) = ($parms[1]);
+
+    if ( grep { $_ eq $tag } views() ) {
+
+        # a valid case
+        my $u = undef;
+        if ( index($tag, '_') != -1 ) {
+            $u = substr($tag,0,index($tag, '_'));
+        }
+        $e = 0;
+        $s = 'Removing references from VOB "/vobs/PVOB_MA" ...
+cleartool: Warning: Some view references are still left in the VOB.
+Removed references to view "/Clearcase/views/'.($u//'x120248').'/'. $tag . '.vws" from VOB "/vobs/PVOB_MA".
+';
+        last;
+
+    } else {
+
+        # view does not exist
+        $e = 1;
+        $s = 'cleartool: Error: View tag not found: "' . $tag . '".
+cleartool: Error: Unable to remove view "' . $tag . '".
+';
+        last;
+    }
+
+    };  # SWITCH_rmview
+
+_warn ">> OUT ct_rmview\n";
+    return wantarray ? ($e, split (/\n/, $s)) : $s;
+}
+# end of ct_rmview()
 #------------------------------------------------
 
 
@@ -514,13 +745,12 @@ sub ct_XXX
 {
     my @parms = @_;
 
-    my $e = 0;
-    my $s = '';
+    my $e = 9999;
+    my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_mkview()';
 
 SWITCH_XXX: {
-      # a valid case
-
-     1;
+    # at least a valid case
+    1;
     };  # SWITCH_XXX
 
     return wantarray ? ($e, split (/\n/, $s)) : $s;
@@ -592,6 +822,8 @@ sub mocked_cleartool
     return ct_lsbl(@parms)     if ( $cmd eq 'lsbl'     );
     return ct_mkstream(@parms) if ( $cmd eq 'mkstream' );
     return ct_mkview(@parms)   if ( $cmd eq 'mkview'   );
+    return ct_lsview(@parms)   if ( $cmd eq 'lsview'   );
+    return ct_rmview(@parms)   if ( $cmd eq 'rmview'   );
 
     return undef;
 }

@@ -25,7 +25,7 @@ WriteMakefile(
     MIN_PERL_VERSION => 5.010000,
     META_MERGE => {
         resources => {
-            #repository => 'http://github.com/elbeho//',
+            #repository => 'http://github.com/elbehosg//',
         },
     },
     LICENSE   => 'perl',
