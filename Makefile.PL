@@ -21,6 +21,12 @@ WriteMakefile(
         'Getopt::Long' => 2.39,
         'Pod::Usage' => 1.61,
         'List::MoreUtils' => 0.33,
+        'File::Basename' => 2.84,
+        'File::Copy::Recursive' => 0.38,
+        'IPC::Run' => 0.92,
+        'LWP::UserAgent' => 6.06,
+        'File::Find::Rule::DirectoryEmpty' => 1.11,
+        'File::Touch' => 0.09,
     },
     MIN_PERL_VERSION => 5.010000,
     META_MERGE => {

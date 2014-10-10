@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use v5.18;
 
-our $VERSION = '0.0.1';
+our $VERSION = '1.0';
 
 use Carp;
 use List::MoreUtils qw(none any );

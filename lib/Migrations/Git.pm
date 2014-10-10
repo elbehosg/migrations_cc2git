@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use v5.18;
 
-our $VERSION = '0.0.1';
+our $VERSION = '1.0';
 
 use Carp;
 use Log::Log4perl qw(:easy);
@@ -110,12 +110,14 @@ sub git
     my ($in,$r,$out,$err);
     my @cmd = ( $GIT, @args );
     eval {
+        # /!\ run() and finish() return TRUE when all subcommands exit with a 0 result code
+        #     and raise an exception on errors
         $r = IPC::Run::run(\@cmd,\$in,\$out,\$err);
     };
     if ( $@ ) {
         return wantarray ? (undef, $@) : undef;
     } else {
-        return wantarray ? ($r,$out,$err) : ($out||$err);
+        return wantarray ? (0,$out,$err) : ($out||$err);
     }
 }
 # end of git()
@@ -241,7 +243,7 @@ sub check_branch
     chdir $repo;
     my ($r,$o,$e) = git('branch', '--list');
     if ( length $o ) {
-        return grep { substr($_,2) eq $branch } split ('\n', $o);
+        $return=grep { substr($_,2) eq $branch } split ('\n', $o);
     } else {
         $return = 0;
     }
@@ -253,6 +255,44 @@ sub check_branch
 #------------------------------------------------
 
 
+#------------------------------------------------
+# check_tag
+#
+# Check if the tag exists in the local repo
+#
+# IN:
+#    $repo = the local repo
+#    $tag  = the tag in the local repo (or not)
+#
+# RETURN:
+#    1 if the tag exists in the repo
+#    0 if not
+#    0 if the repo does not exist
+#    undef if an argument is missing
+#
+#------------------------------------------------
+sub check_tag
+{
+    my $repo   = shift;
+    my $tag = shift;
+
+    return undef unless ( defined $repo and defined $tag);
+    return 0 unless ( check_local_repo($repo) );
+
+    my $return = 4;
+    my $cwd = File::Spec->curdir();
+    chdir $repo;
+    my ($r,$o,$e) = git('tag');
+    if ( length $o ) {
+        $return=grep { $_ eq $tag } split ('\n', $o);
+    } else {
+        $return = 0;
+    }
+    chdir $cwd;
+
+    return $return;
+}
+# end of check_tag()
 #------------------------------------------------
 
 

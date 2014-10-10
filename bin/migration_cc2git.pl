@@ -8,6 +8,8 @@ use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage qw(pod2usage);
 use Log::Log4perl qw(:easy);
 use Data::Dumper;
+use File::Path qw(remove_tree);
+use File::Temp;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
@@ -15,44 +17,500 @@ use lib "$FindBin::Bin/../lib";
 use Migrations::Parameters;
 use Migrations::Clearcase;
 use Migrations::Git;
+use Migrations::Migrate;
 
-our $VERSION = '1.0.0';
+our $VERSION = '1.0';
 
 
 
 #------------------------------------------------
-# init_logs()
+# undo_all
 #
-# Initialize Log::Log4perl
+# Undo the ops that have created something until
+# a fatal error occured
+# The ops are processed in reverse order.
 #
-# IN: 
-#    logfile: the output of the logger
+# IN:
+#   array of { key, value } : 
+#       key is the kind of the entity to undo (stream, view)
+#       value is the name
+#
+# RETURN:
+#   number of successfull undos
+#
 #------------------------------------------------
-sub init_logs
+sub undo_all
 {
-    my $logfile = shift // "STDOUT";
+    my @undo = @_;
 
-    Log::Log4perl->easy_init( { level    => $DEBUG,
-                                file     => $logfile,
-                                layout   => '%m%n',
-                              },
-                            ); 
+    my @success = ();
+    for my $u ( reverse @undo ) {
+        my ($k, $v) = each %$u;
+        if ( $k eq 'stream' ) {
+            my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $v);
+            if ( $e ) {
+                ERROR "[E] Impossible de supprimer le stream $v.";
+            } else {
+                push @success, $u;
+            }
+            next;
+        }
+        if ( $k eq 'view' ) {
+            my ($e,$r) = Migrations::Clearcase::cleartool('rmview ', '-tag ', $v);
+            if ( $e ) {
+                ERROR "[E] Impossible de supprimer la vue $v.";
+            } else {
+                push @success, $u;
+            }
+            next;
+        }
+        if ( $k eq 'file' ) {
+            my $e = unlink $v;
+            if ( $e != 1 ) {
+                ERROR "[E] Impossible de le fichier $v ($!).";
+            } else {
+                push @success, $u;
+            }
+            next;
+        }
+    }
+    return @success;
+}
+# end of undo_all()
+#------------------------------------------------
 
 
-    # Log::Log4perl->easy_init( { level    => $DEBUG,
-    #                             file     => ">>test.log",
-    #                             category => "Migrations::Parameters",
-    #                             layout   => '%F{1}-%L-%M: %m%n' },
-    #                           { level    => $DEBUG,
-    #                             file     => "STDOUT",
-    #                             category => "main",
-    #                             layout   => '%m%n' },
-    #                         );
+#------------------------------------------------
+# check_clearcase_status
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub check_clearcase_status
+{
+    my $opt = shift;
+    my $data = shift;
+
+    INFO "[I] Est-ce que Clearcase est installe ?";
+    my $ct = Migrations::Clearcase::where_is_cleartool();
+    if ( !defined $ct ) {
+        WARN "[W] Clearcase n'est pas disponible.";
+    } else {
+        INFO "[I] Cleartool est $ct";
+    }
+    $data->{cleartool} = $ct;
+
+    INFO "[I] Est-ce que la stream est valide ?";
+    my $stream   = Migrations::Clearcase::check_stream($opt->{stream});
+    if ( defined $stream ) {
+        INFO '[I] La stream ' . $opt->{stream} . ' est définie.';
+    } else {
+        WARN '[W] La stream fournie ('. $opt->{stream} . ') est incorrecte.';
+    }
+    INFO "[I] ";
+    INFO "[I] Recupération des composants Clearcase :";
+    my @components = Migrations::Clearcase::get_components($opt->{stream});
+    if ( ! defined $components[0] ) {
+        LOGDIE('[F] Impossible de récupérer la liste des composants de ' . $opt->{stream} . '. Fatal.');
+    }
+    $data->{components} = \@components;
+    my @components_rootdir = Migrations::Clearcase::get_components_rootdir(@components);
+    if ( ! defined $components_rootdir[0] ) {
+        LOGDIE('[F] Impossible de récupérer les rootdir des composants de ' . $opt->{stream} . '. Fatal.');
+    }
+    $data->{components_rootdir} = \@components_rootdir;
+
+    INFO "[I] ";
+
+    INFO "[I] Est-ce que la baseline est valide ?";
+    if ( exists $opt->{bls} and exists $opt->{baseline} ) {
+        LOGDIE('bls et baseline en meme temps. Ca pue trop. J\'arrete tout.');
+    }
+    my @baselines = ();
+    if ( exists $opt->{baseline} ) {
+        @baselines = Migrations::Clearcase::compose_baseline($opt->{stream},$opt->{baseline});
+        if ( !defined $baselines[0] ) {
+            LOGDIE "[F] La baseline fournie ($opt->{baseline}) ne convient pas. Fatal.";
+        }
+    } else {
+        @baselines = grep { Migrations::Clearcase::check_baseline($_) == 0 } @{$opt->{bls}};
+    }
+    $data->{baselines} = \@baselines;
+
+    INFO "[I] Baseline recomposée :";
+    INFO "[I]   $_" for ( @baselines );
+
+    INFO "[I] ";
 
 }
-# end of init_logs()
+# end of check_clearcase_status()
 #------------------------------------------------
 
+
+#------------------------------------------------
+# check_git_status
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub check_git_status
+{
+    my $opt = shift;
+    my $data = shift;
+
+    INFO "[I] ";
+    INFO "[I] Est-ce que git est installe ?";
+    my $git = Migrations::Git::where_is_git();
+    if ( !defined $git ) {
+        WARN "[W] Git n'est pas disponible.";
+    } else {
+        INFO "[I] Git est $git";
+    }
+    $data->{git} = $git;
+ 
+    INFO "[I] Est-ce que le depot local existe ?";
+    if ( ! Migrations::Git::check_local_repo($opt->{repo}) ) {
+        LOGDIE "[F] Le depot local $opt->{repo} n'est pas un depot git. Fatal.\n";
+    }
+    INFO "[I] Le depot $opt->{repo} existe.";
+
+    INFO "[I] Est-ce que la branche d'import existe ?";
+    if ( ! Migrations::Git::check_branch($opt->{repo}, $opt->{branch}) ) {
+        LOGDIE "[F] Le depot local $opt->{repo} ne comporte pas de branche $opt->{branch}. Fatal.\n";
+    }
+    INFO "[I] La branche $opt->{branch} existe dans le depot $opt->{repo}.";
+
+    $data->{tag} = ( exists $opt->{baseline} ) ? $opt->{baseline} : $opt->{tag};
+    INFO "[I] Est-ce que le tag d'import existe ?";
+    if ( Migrations::Git::check_branch($opt->{repo}, $data->{tag}) ) {
+        LOGDIE "[F] Le depot local $opt->{repo} comporte deja un tag $data->{tag}. Fatal.\n";
+    }
+    INFO "[I] Le tag $data->{tag} n'existe pas dans le depot $opt->{repo}.";
+}
+# end of check_git_status()
+#------------------------------------------------
+
+#
+#------------------------------------------------
+# prepare_clearcase
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub prepare_clearcase
+{
+    my $opt = shift;
+    my $data = shift;
+
+    INFO "[I] Création du stream d'export";
+    # on cree le stream (-ro)
+    my $stream4export = Migrations::Clearcase::make_stream($opt->{stream}, (join ',', @{$data->{baselines}}));
+    if ( ! defined $stream4export ) {
+        LOGDIE "[F] Impossible de creer le stream Clearcase pour l'export. Abort.";
+    }
+    push @{$data->{undo}}, { stream => $stream4export };
+    $data->{stream4export} = $stream4export;
+
+
+    # on cree la vue sur le stream
+    my $u = $ENV{USERNAME} // ( $ENV{LOGNAME} // ( $ENV{LOGNAME} // 'unknownuser' ) );
+    my $s = substr($stream4export,7);
+    $s = substr($s, 0, index($s,'@'));
+    my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
+    if ( ! defined $viewtag ) {
+        my $err = "[F] Impossible de creer la vue Clearcase pour l'export. Abort.";
+        undo_all(@{$data->{undo}});
+        LOGDIE $err;
+    }
+    $data->{user} = $u;
+    $data->{viewtag} = $viewtag;
+    push @{$data->{undo}}, { view => $viewtag };
+}
+# end of prepare_clearcase()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# prepare_git
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub prepare_git
+{
+    my $opt = shift;
+    my $data = shift;
+
+    INFO "[I] Préparatif de la branche $opt->{branch}.";
+    my $old_cwd = File::Spec->curdir;
+    chdir $opt->{repo};
+    Migrations::Git::git('checkout', $opt->{branch});
+    my %cc2git;
+    if ( -f 'matching_clearcase_git.txt' ) {
+        my $r = Migrations::Migrate::read_matching_file(\%cc2git, File::Spec->catfile( File::Spec->splitdir($opt->{repo}), 'matching_clearcase_git.txt'));
+        LOGDIE("Cannot open 'matching_clearcase_git.txt' although -f says it's here. Abort.") unless ( defined $r );
+        while ( my ($k, $v ) = each %cc2git ) {
+            next if (index($v,'/') != -1 ); # no slash allowed in git part
+            remove_tree($v);
+        }
+    } else {
+        # touch matching_clearcase_git.txt
+        open my $f, '>', 'matching_clearcase_git.txt' or LOGDIE("Cannot create an empty 'matching_clearcase_git.txt'. Abort.");
+        close $f;
+        push @{$data->{undo}}, { file =>  File::Spec->catfile( File::Spec->splitdir($opt->{repo}), 'matching_clearcase_git.txt') };
+    }
+    chdir $old_cwd;
+}
+# end of prepare_git()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# transfer_data
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub transfer_data
+{
+    my $opt = shift;
+    my $data = shift;
+
+    my $fname = Migrations::Migrate::build_migration_script($FindBin::Bin . '/../lib',$opt, $data->{components_rootdir});
+    if ( defined $fname ) {
+        INFO "[I] Script de migration cree : $fname";
+        push @{$data->{undo}}, { file => $fname };
+    } else {
+        my $err = "[F] Erreur a la creation du script de migration. Abort.";
+        undo_all(@{$data->{undo}});
+        LOGDIE $err;
+    }
+
+    # cleartool setview -exec 
+    INFO "[I] Debut de l'import des donnees de Clearcase vers Git...";
+    my ($e,@r) = Migrations::Clearcase::cleartool('setview ', '-exec ', $fname,  $data->{viewtag});
+    if ( $e ) {
+        FATAL "[F] Erreur lors de l'extraction de donnees par cleartool setview -exec $fname $data->{viewtag}";
+        for my $r ( @r ) {
+            FATAL "[F] > $r";
+        }
+        LOGDIE("[F] Fatal.");
+    } else {
+        for my $r ( @r ) {
+            INFO "[I] > $r";
+        }
+    }
+    INFO "[I] Import reussi";
+
+    INFO "[I] Ajout de l'import dans git";
+    my ($sout, $serr);
+    ($e, $sout, $serr) = Migrations::Git::git('add' ,'-A');
+    if ( $e ) {
+        FATAL "[F] Erreur lors de l'import sous git par 'git add -A'.";
+        for my $r ( split "\n", $sout ) {
+            FATAL "[F] > $r";
+        }
+        FATAL "[F]";
+        for my $r ( split "\n", $serr ) {
+            FATAL "[F] > $r";
+        }
+        LOGDIE("[F] Fatal.");
+    }
+    INFO "[I] Ajout dans git reussi";
+    push @{$data->{undo}}, { git_add_A =>  '???' };
+
+}
+# end of transfer_data()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# finalize_git
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub finalize_git
+{
+    my $opt = shift;
+    my $data = shift;
+
+    #--------------
+    $data->{msg_commit} = 'Import de la baseline ' . $data->{tag} . ' du stream ' . $opt->{stream};
+    $data->{msg_commit} .= "
+
+$data->{parms}
+
+Baseline recomposée :
+";
+    $data->{msg_commit} .= join "\n", @{$data->{baselines}};
+    $data->{msg_commit} .= "
+
+Component rootdirs :
+";
+    $data->{msg_commit} .= join "\n", @{$data->{components_rootdir}};
+    $data->{msg_commit} .= "
+
+";
+    #--------------
+
+    INFO "[I] Commit de l'import"; 
+    my ($e, $sout, $serr) = Migrations::Git::git('commit', '-m', $data->{msg_commit});
+    if ( $e ) {
+        my $headline = substr($data->{msg_commit}, 0, 40);
+        FATAL "[F] Erreur lors du commit sous git par 'git commit -m" . $headline . "...'.";
+        for my $r ( split "\n", $sout ) {
+            FATAL "[F] > $r";
+        }
+        FATAL "[F]";
+        for my $r ( split "\n", $serr ) {
+            FATAL "[F] > $r";
+        }
+        LOGDIE("[F] Fatal.");
+    }
+    INFO "[I] Commit reussi";
+    push @{$data->{undo}}, { git_commit =>  '???' };
+
+    INFO "[I] Creation du label $data->{tag}";
+    ($e, $sout, $serr) = Migrations::Git::git('tag', $data->{tag});
+    if ( $e ) {
+        FATAL "[F] Erreur lors de la creation du tag par 'git tag ".$data->{tag} . "'.";
+        for my $r ( split "\n", $sout ) {
+            FATAL "[F] > $r";
+        }
+        FATAL "[F]";
+        for my $r ( split "\n", $serr ) {
+            FATAL "[F] > $r";
+        }
+        LOGDIE("[F] Fatal.");
+    }
+    INFO "[I] Tag pose";
+    push @{$data->{undo}}, { git_tag =>  '???' };
+
+}
+# end of finalize_git()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# cleanup
+#
+# IN:
+#   $opt = HASHref on the opt from command line
+#                 and/or --input file
+# IN/OUT:
+#   $data : HASHref with data gathered from git /
+#                 clearcase / %$opt
+#
+# RETURN:
+#   nothing
+#   verbose (via Log4perl)
+#   but can LOGDIE
+#------------------------------------------------
+sub cleanup
+{
+    my $opt = shift;
+    my $data = shift;
+
+    my @list = ();
+    for my $u ( reverse @{$data->{undo}} ) {
+        my ($k, $v) = each %$u;
+        if ( $k eq 'stream' ) {
+            my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $v);
+            if ( $e ) {
+                ERROR "[E] Impossible de supprimer le stream $v.";
+            } else {
+                INFO "[I] Stream $v supprime.";
+            }
+            next;
+        }
+        if ( $k eq 'view' ) {
+            my ($e,$r) = Migrations::Clearcase::cleartool('rmview ', '-tag ', $v);
+            if ( $e ) {
+                ERROR "[E] Impossible de supprimer la vue $v.";
+            } else {
+                INFO "[I] Vue $v supprimee.";
+            }
+            next;
+        }
+        if ( $k eq 'file' and $v =~ m/migrate_\w{6}\.pl/i ) {
+            my $e = unlink($v);
+            if ( $e != 1 ) {
+                ERROR "[E] Erreur lors de la suppression du script de migration $v.";
+            } else {
+                INFO "[I] Fichier $v supprime.";
+            }
+            next;
+        }
+        push @list, $u;
+    }
+    $data->{undo} = \@list;
+    
+}
+# end of cleanup()
+#------------------------------------------------
+
+
+
+#------------------------------------------------
+#
+#  VALID PAREMETERS
+#
+#------------------------------------------------
 
 #
 # subkeys for an argument :
@@ -89,6 +547,11 @@ my %expected_args = (
         mandatory_unless => [ 'baseline' ],
         exclude => [ 'baseline' ],
         getopt => 'bls=s@',
+        },
+    tag => {
+        mandatory_unless => [ 'baseline' ],
+        exclude => [ 'baseline' ],
+        getopt => 'tag=s',
         },
     interactive => {
         optional => 1,
@@ -128,9 +591,25 @@ my %expected_args = (
     );
 # end of %expected_args
 
-init_logs();
+#------------------------------------------------
+#
+#   MAIN
+#
+#------------------------------------------------
 
-my %opt;
+my %opt;  # for what comes from command line or alike
+my %data; # for what is computed from git, clearcase, %opt...
+
+#------------------------------------------------
+# Init log system
+#------------------------------------------------
+
+Migrations::Migrate::init_logs();
+
+#------------------------------------------------
+# Handle arguments and parameters
+#------------------------------------------------
+
 my @valid_args = Migrations::Parameters::list_for_getopt(\%expected_args);
 
 GetOptions(\%opt, @valid_args, "help|usage|?", "man") || pod2usage(2);
@@ -154,7 +633,7 @@ if ( exists $opt{input} ) {
     close $fh;
     my %input ;
     my ($ret, $args) = GetOptionsFromString($argv, \%input, @valid_args );
-    # TODO: que faire de $ret (code retour) et $args (arguments hors @$...)
+    # TODO: que faire de $ret (code retour) et $args (arguments hors @$...) ???
 
     # Priorities for args is default value < --input file < command line :
     while ( my ($k, $v ) = each %input ) {
@@ -170,7 +649,7 @@ if ( $ret ) {
 
 if ( -e $opt{logfile} ) {
     WARN "[W] $opt{logfile} already exists. Will be appended.";
-    init_logs(">>".$opt{logfile});
+    Migrations::Migrate::init_logs(">>".$opt{logfile});
     INFO '
 
 -----------------------------------------------------------------------
@@ -180,7 +659,7 @@ if ( -e $opt{logfile} ) {
     if ( $opt{logfile} eq '-' ) {
         $opt{logfile} = 'STDOUT';
     }
-    init_logs($opt{logfile});
+    Migrations::Migrate::init_logs($opt{logfile});
 }
 
 if ( exists $opt{bls} ) {
@@ -188,131 +667,49 @@ if ( exists $opt{bls} ) {
     $opt{bls} = \@bls;
 }
 
+#------------------------------------------------
+# Let's go
+#------------------------------------------------
+
 INFO "[I] Demarrage de la migration Clearcase --> Git";
 INFO "[I] ";
-INFO "[I] Parametres d'appel :";
+$data{parms} = '[I] Parametres d\'appel :
+';
 for my $k ( sort keys %opt ) {
     my $d = Data::Dumper->new([$opt{$k}], [$k]);
     $d->Indent(0);
     $d->Terse(1);
     my $s = sprintf("[I]    %-12s %s\n",$k,$d->Dump);
-    INFO $s;
+    $data{parms} .= $s;
 }
-INFO "[I] ";
+$data{parms} .= "[I]\n";
 
 my $s = sprintf("[I] %-15s %s\n",'OS courant',$^O);
-INFO $s;
-INFO "[I] ";
+$data{parms} .= $s . "[I]\n";
 
-INFO "[I] Est-ce que Clearcase est installe ?";
-my $ct = Migrations::Clearcase::where_is_cleartool();
-if ( !defined $ct ) {
-    WARN "[W] Clearcase n'est pas disponible.";
-} else {
-    INFO "[I] Cleartool est $ct";
-}
+INFO $data{parms};
 
-INFO "[I] Est-ce que la stream est valide ?";
-my $stream   = Migrations::Clearcase::check_stream($opt{stream});
-if ( defined $stream ) {
-    INFO '[I] La stream ' . $opt{stream} . ' est définie.';
-} else {
-    WARN '[W] La stream fournie ('. $opt{stream} . ') est incorrecte.';
-}
-INFO "[I] ";
+#------------------------------------------------
+# Check Clearcase and Git status
+#------------------------------------------------
+
+check_clearcase_status(\%opt, \%data);
+check_git_status(\%opt, \%data);
 
 
-INFO "[I] Est-ce que la baseline est valide ?";
-if ( exists $opt{bls} and exists $opt{baseline} ) {
-    LOGDIE('bls et baseline en meme temps. Ca pue trop. J\'arrete tout.');
-}
-my @baselines = ();
-if ( exists $opt{baseline} ) {
-    @baselines = Migrations::Clearcase::compose_baseline($opt{stream},$opt{baseline});
-    if ( !defined $baselines[0] ) {
-        LOGDIE "[F] La baseline fournie ($opt{baseline}) ne convient pas. Abort.";
-    }
-} else {
-    @baselines = grep { Migrations::Clearcase::check_baseline($_) == 0 } @{$opt{bls}};
-}
+#------------------------------------------------
+# Create a clean environment to transfer the files
+#------------------------------------------------
 
-INFO "[I] Baseline recomposée :";
-INFO "[I]   $_" for ( @baselines );
+prepare_clearcase(\%opt, \%data);
+prepare_git(\%opt, \%data);
 
-INFO "[I] ";
+# Assumption :
+# the current directory does not contain any directory matching a Clearcase component
 
-INFO "[I] Création du stream d'export";
-# on cree le stream (-ro)
-my $stream4export = Migrations::Clearcase::make_stream($opt{stream}, (join ',', @baselines));
-if ( ! defined $stream4export ) {
-    LOGDIE "[F] Impossible de creer le stream Clearcase pour l'export. Abort.";
-}
-
-# on cree la vue sur le stream
-my $u = $ENV{USERNAME} // ( $ENV{LOGNAME} // ( $ENV{LOGNAME} // 'unknownuser' ) );
-my $s = substr($stream4export,7);
-$s = substr($s, 0, index($s,'@'));
-my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
-
-if ( ! defined $viewtag ) {
-    my $err = "[F] Impossible de creer la vue Clearcase pour l'export. Abort.";
-    my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $stream4export);
-    if ( $e ) {
-      $err .= "\n[F] Impossible de supprimer le stream d'export ($stream4export). Abort.";
-    }
-    LOGDIE $err;
-}
-
-
-# on teste l'etat de git
-INFO "[I] ";
-
-INFO "[I] Est-ce que git est installe ?";
-my $git = Migrations::Git::where_is_git();
-if ( !defined $git ) {
-    WARN "[W] Git n'est pas disponible.";
-} else {
-    INFO "[I] Git est $git";
-}
-
-INFO "[I] Est-ce que le depot local existe ?"
-if ( ! Migrations::Git::check_local_repo($opt{repo}) ) {
-    LOGDIE "[F] Le depot local $opt{repo} n'est pas un depot git. Abort.\n");
-}
-INFO "[I] Le depot $opt{repo} existe.";
-
-INFO "[I] Est-ce que la branche d'import existe ?";
-if ( ! Migrations::Git::check_branch($opt{repo}, $opt{branch}) ) {
-    LOGDIE "[F] Le depot local $opt{repo} ne comporte pas de branche $opt{branch}. Abort.\n");
-}
-INFO "[I] La branche $opt{branch} existe dans le depot $opt{repo}.";
-
-
-INFO "[I] Préparatif de la branche $opt{branch}.";
-my$old_cwd = File::Spec->curdir;
-chdir $opt{repo};
-Migration::Git::git('checkout', $opt{branch});
-my %cc2git;
-if ( -f 'matching_clearcase_git.txt' ) {
-    open my $f, '<', 'matching_clearcase_git.txt' or LOGDIE("Cannot open 'matching_clearcase_git.txt' although -f says it's here. Abort.");
-    while ( <$f> ) {
-        s/#.*//; s/^\s+//; s/\s+$//;
-        next unless length;
-        # VOB/component_clearcase | directory_git
-        my ($cc,$git) = split '|';
-        $git =~ s/^\s+//; $git =~ s/\s+$//;
-        next if (index($git,'/') != -1 ); # no slash, no pipe
-        remove_tree($git);
-    }
-    close $f;
-} else {
-    open my $f, '>', 'matching_clearcase_git.txt' or LOGDIE("Cannot create an empty 'matching_clearcase_git.txt'. Abort.");
-}
-
-# cleartool setview ...
-
-
-
+#------------------------------------------------
+# Transfer the data to git
+#------------------------------------------------
 # git co branch
 # si matching_clearcase_git.txt existe
 #     pour chaque composant :
@@ -330,29 +727,32 @@ if ( -f 'matching_clearcase_git.txt' ) {
 #             ajouter l'association composantCC <--> dest_comp dans matching_clearcase_git.txt
 #        # assertion : on sait associer de facon unique composantCC et repertoire git
 #        #             dans le depot local on est sur la branche d'import
-#        cp composant_CC dans dest_comp
+#        cp -r composant_CC dans dest_comp
 #    exit
 #
-# git -A && git commit && git tag
-# git push
+# git -A
+# git commit -m 'Import de la BL du stream '
+# git tag BL
 #
 
+transfer_data(\%opt, \%data);
+finalize_git(\%opt, \%data);
 
-# on se met dans le bon context git
-# on rince le répertoire
+#------------------------------------------------
+# Cleanup
+#------------------------------------------------
 
-# (on se met dans le contexte de la vue) on extrait le contenu de la vue
-# on copie recursivement depuis la vue vers le context git
-
-# on git add / git commit / git push
-
-# on implemente les differents steps :-)
-
+cleanup(\%opt, \%data);
 
 
 INFO "[I] That's all folks!";
 
 exit 0;
+
+END {
+    DEBUG "[D] To END\n";
+    DEBUG "[D] " . Dumper(\@{$data{undo}});
+}
 
 __END__
 
@@ -368,7 +768,7 @@ migration_cc2git.pl - migrate (ie import) a "baseline" from a Clearcase VOB to a
  
 =head1 VERSION
  
-version 0.0.1
+version 1.0
  
 =head1 SYNOPSIS
  

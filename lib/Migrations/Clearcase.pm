@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use v5.18;
 
-our $VERSION = '0.1';
+our $VERSION = '1.0';
 
 use Carp;
 use Log::Log4perl qw(:easy);
@@ -297,6 +297,101 @@ sub check_view
 
 
 #------------------------------------------------
+# check_view_context()
+#
+# Check if the current process is in a view
+#
+# RETURN
+#     undef if cleartool cannot be found
+#     0 in a view context
+#     1 if not
+# 
+#------------------------------------------------
+sub check_view_context
+{
+    my ($e) = cleartool('lsview', '-cview');
+    return $e;
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
+# get_components
+#
+# Return the list of components of the stream
+#
+# Assumes cleartool does exists!
+#
+# RETURN (scalar context)
+#     undef if the stream is invalid or cleartool doesn't exist
+#     component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2
+#           if everything's ok
+#
+# RETURN (array context)
+#     (undef) if the stream is invalid or cleartool doesn't exist
+#     (component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2)
+#           if everything's ok
+#------------------------------------------------
+sub get_components
+{
+    my $stream = shift;
+
+    return undef unless ( defined $stream );
+    return undef unless ( defined check_stream($stream) );
+
+    my $pvob = $stream;
+    substr($pvob, 0, index($pvob,'@',0)+1) = '';
+    # force $stream to be : stream:xxxx@PVOB
+    $stream =~ s/^stream://;
+    $stream = "stream:$stream";
+
+    my ($e, @comps) = cleartool("lsstream -fmt '%[components]NXp' ", $stream);
+    # should not fail as check_stream($stream) validated it as stream:
+    return undef unless ( defined $e and $e == 0);
+    return undef unless scalar @comps;
+    return wantarray ? @comps : ( join ',',@comps);
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
+# get_components_rootdir
+#
+# Return the list of the root dir of the components
+#
+# Assumes cleartool does exists!
+#
+# RETURN (scalar context)
+#     undef if the stream is invalid or cleartool doesn't exist
+#     VOBTAG1/comp1,VOBTAG2/comp2,VOBTAG2/comp3
+#           if everything's ok
+#
+# RETURN (array context)
+#     (undef) if the stream is invalid or cleartool doesn't exist
+#     (VOBTAG1/comp1,VOBTAG2/comp2,VOBTAG2/comp3)
+#           if everything's ok
+#------------------------------------------------
+sub get_components_rootdir
+{
+    my @list = @_;
+
+    my @rootdirs = ();
+
+    for my $c ( @list ) {
+        my ($e, $cvob) = cleartool("lscomp -fmt '%[root_dir]p'", $c);
+        if ( defined $e and $e == 0 ) {
+            push @rootdirs, $cvob;
+        } else {
+            push @rootdirs, undef;
+        }
+    }
+
+    return wantarray ? @rootdirs : ( join ',',@rootdirs);
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
 # compose_baseline()
 #
 # Compose the baseline using a X.Y.Z-SNAPSHOT notation
@@ -389,7 +484,7 @@ sub make_stream
     return undef unless ( defined $parent and defined $baseline );
     return undef unless ( defined check_stream($parent) );
 
-DEBUG ">>\n>>IN make_stream\n";
+DEBUG "[D]\n[D] IN make_stream\n";
     my $pvob = $parent;
     substr($pvob, 0, index($pvob,'@',0)+1) = '';
     # force $parent to be : stream:xxxx@PVOB
@@ -400,14 +495,14 @@ DEBUG ">>\n>>IN make_stream\n";
     substr($new, index($new,'@',0)) = '';
     $new    =~ s/_(ass|dev|mainline|int)?$//i;
     $new   .= $suffix . '@' . $pvob;
-DEBUG ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
+DEBUG "[D] (make_stream) [$parent] [$pvob] [$suffix] new = [$new]\n";
     my  $r = check_stream($new);
-DEBUG ">> r = " .( $r  // 'undef (OK)' )."\n";
+DEBUG "[D] (make_stream) r = " .( $r  // 'undef (OK)' )."\n";
     return undef if ( defined check_stream($new) );
-DEBUG ">> new = [$new]\n";
+DEBUG "[D] (make_stream) new = [$new]\n";
 
     my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
-DEBUG ">> e   = [$e]\n";
+DEBUG "[D] (make_stream) e   = [$e]\n";
     if (defined $e and $e == 0 ) {
         # success
         return $new;

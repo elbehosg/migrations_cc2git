@@ -5,7 +5,7 @@ migration_cc2git.pl - migrate (ie import) a "baseline" from a Clearcase VOB to a
  
 VERSION
  
-version 0.0.1
+version 1.0
  
 SYNOPSIS
  

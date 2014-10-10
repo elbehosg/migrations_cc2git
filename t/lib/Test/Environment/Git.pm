@@ -86,6 +86,19 @@ sub GitBranch
     return $ret;
 }
 
+sub GitTag
+{
+    my $self = shift;
+    my $tag = shift;
+    die 'GitTag called without tag name to create' unless ( defined $tag and $tag ne '' );
+    my ($in,$out,$err);
+    my @cmd = ( 'git', 'tag', $tag );
+    my $ret = IPC::Run::run(\@cmd,\$in,\$out,\$err); 
+    $self->{last_stdout} = $out;
+    $self->{last_stderr} = $err;
+    return $ret;
+}
+
 sub InitRepo
 {
     my $self = shift;
@@ -109,6 +122,16 @@ sub Branch
     my $old = File::Spec->curdir;
     chdir($self->{fullname});
     $self->GitBranch(@_);
+    chdir($old);
+}
+
+sub Tag
+{
+    my $self = shift;
+
+    my $old = File::Spec->curdir;
+    chdir($self->{fullname});
+    $self->GitTag(@_);
     chdir($old);
 }
 
