@@ -14,7 +14,7 @@ diag("\nTesting Clearcase-related functions...");
 
 my $ct = Migrations::Clearcase::where_is_cleartool();
 if ( defined $ct ) {
-    diag("cleartool found at $ct");
+    diag("cleartool found at [$ct]");
     ok(-x $ct, "cleartool is known.");
 } else {
     ok(1, "Cannot find cleartool neither in PATH, ATRIA_HOME/bin nor /usr/atria/bin (*nix only).");
@@ -25,11 +25,11 @@ SKIP: {
     
     my $r = Migrations::Clearcase::cleartool('-booh');
     ok($r eq 'cleartool: Error: Unrecognized command: "-booh"
-    ', 'Migrations::Clearcase::cleartool(-booh)');
+', 'Migrations::Clearcase::cleartool(-booh)');
     my @r = Migrations::Clearcase::cleartool('-booh');
     ok(scalar @r == 2, 'Migrations::Clearcase::cleartool(-booh)');
     ok( ($r[0] == 1 and $r[1] eq 'cleartool: Error: Unrecognized command: "-booh"
-    '), 'Migrations::Clearcase::cleartool(-booh)');
+'), 'Migrations::Clearcase::cleartool(-booh)');
 
     @r = Migrations::Clearcase::cleartool('-ver');
     ok(scalar @r > 2, 'Migrations::Clearcase::cleartool(-ver)');
