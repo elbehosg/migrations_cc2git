@@ -2,44 +2,46 @@
 
 use strict;
 use warnings;
+use v5.18;
 
-use feature 'say';
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage qw(pod2usage);
 
-#use FindBin;
-#use local::lib "$FindBin::Bin/";
+use FindBin;
+use lib "$FindBin::Bin/../lib";
 
+use Migrations::Parameters;
 use Migrations::Clearcase;
 use Migrations::Git;
 
 
-#------------------------------------------------
-#
-# Command line analysis
-#
-#------------------------------------------------
-
-sub command_line_analysis
-{
-    my $opt = shift;
-}
-
-
 my %opt;
-GetOptions(\%opt, "help|usage|?", "man", "flag1");#,  ||  pod2usage(2);
+my @valid_args = (
+                 "help|usage|?", "man",                                          # help
+                 );
+my @mandatory_args = (
+                     "stream=s", "repo=s", "branch=s", "output=s",     # mandatory
+                     );
+my @optional_args = (
+                    "interactive!", "preview", "steps=s@", "reset", "push!", # optional
+                    "input=s",                                                      
+                    );
+my @either_args = (
+                    [ "baseline=s", "bls=s@" ],                     # either --baseline or --bls
+                  );
+
+GetOptions(\%opt, @valid_args, @mandatory_args, @optional_args, map {@$_} @either_args ) || pod2usage(2);
+
 pod2usage(1)  if ($opt{help});
 pod2usage(-exitval => 0, -verbose => 2)  if ($opt{man});
 
 use Data::Dumper;
-say Dumper(\%opt);
-say Dumper(\@ARGV);
+say Data::Dumper->Dump([\%opt,\@ARGV], [qw(opt ARGV)]);
 
 
+Migrations::Parameters::command_line_analysis(\%opt, \@mandatory_args, \@optional_args, \@either_args);
 
 
-say "Good bye Clearcase";
-say "Hello Git";
 
 exit 0;
 
