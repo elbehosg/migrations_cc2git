@@ -16,22 +16,84 @@ use Migrations::Git;
 
 our $VERSION = '1.0.0';
 
-my %opt;
-my @valid_args = (
-                 "help|usage|?", "man",                                          # help
-                 );
-my @mandatory_args = (
-                     "stream=s", "repo=s", "branch=s", "output=s",     # mandatory
-                     );
-my @optional_args = (
-                    "interactive!", "preview", "steps=s@", "reset", "push!", # optional
-                    "input=s",                                                      
-                    );
-my @either_args = (
-                    [ "baseline=s", "bls=s@" ],                     # either --baseline or --bls
-                  );
 
-GetOptions(\%opt, @valid_args, @mandatory_args, @optional_args, map {@$_} @either_args ) || pod2usage(2);
+#
+# subkeys for an argument :
+#     getopt => string    description of the arg for Getopt::Long::GetOptions
+#     mandatory => 1      if the arg is mandatory
+#     optional  => 1      if the arg is optional
+#     default => something   default value for the args
+#     mandatory_unless => [ arg1, arg2 ] if one of the arg, arg1, arg2 are mandatory
+#     exclude => [ arg1, arg2 ] if presence of arg forbids presence of arg1 or arg2
+#
+my %expected_args = (
+    stream => {
+        mandatory => 1,
+        getopt => 'stream=s',
+        },
+    repo => {
+        mandatory => 1,
+        getopt => 'repo=s',
+        },
+    branch => {
+        mandatory => 1,
+        getopt => 'branch=s',
+        },
+    output => {
+        mandatory => 1,
+        getopt => 'output=s',
+        },
+    baseline => {
+        mandatory_unless => [ 'bls' ],
+        getopt => 'baseline=s',
+        },
+    bls => {
+        mandatory_unless => [ 'baseline' ],
+        getopt => 'bls=s@',
+        },
+    interactive => {
+        optional => 1,
+        getopt => 'interactive!',
+        default => 0,
+        },
+    preview => {
+        optional => 1,
+        getopt => 'preview',
+        default => 0,
+        },
+    step => {
+        optional => 1,
+        getopt => 'steps=@',
+        default => 'all',
+        },
+    reset => {
+        optional => 1,
+        getopt => 'reset',
+        default => 0,
+        },
+    push => {
+        optional => 1,
+        getopt => 'push!',
+        default => 0,
+        },
+    input => {
+        optional => 1,
+        getopt => 'input=s',
+        },
+    verbose => {
+        optional => 1,
+        getopt => 'verbose+',
+        default => 0,
+        },
+    
+    );
+# end of %expected_args
+
+my %opt;
+my @valid_args = Migrations::Parameters::build_list_for_getopt(\%expected_args);
+
+
+GetOptions(\%opt, @valid_args, "help|usage|?", "man" ) || pod2usage(2);
 
 pod2usage(1)  if ($opt{help});
 pod2usage(-exitval => 0, -verbose => 2)  if ($opt{man});
@@ -40,7 +102,7 @@ use Data::Dumper;
 say Data::Dumper->Dump([\%opt,\@ARGV], [qw(opt ARGV)]);
 
 
-Migrations::Parameters::command_line_analysis(\%opt, \@mandatory_args, \@optional_args, \@either_args);
+my $ret = Migrations::Parameters::validate_arguments(\%opt, \%expected_args);
 
 
 
