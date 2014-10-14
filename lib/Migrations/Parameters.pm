@@ -40,7 +40,7 @@ sub command_line_analysis
         my ($ret, $args) = GetOptionsFromString($argv, $opt, @$mandatory, @$optional, map {@$_}@$either);
         # TODO: que faire de $ret (code retour) et $args (arguments hors @$...)
 
-        say Data::Dumper->Dump([$opt], ['opt apres']);
+        #say Data::Dumper->Dump([$opt], ['opt apres']);
     }
 
     #
