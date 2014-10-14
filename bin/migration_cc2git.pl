@@ -92,13 +92,10 @@ my %expected_args = (
 my %opt;
 my @valid_args = Migrations::Parameters::list_for_getopt(\%expected_args);
 
-GetOptions(\%opt, @valid_args, "help|usage|?", "man" ) || pod2usage(2);
+GetOptions(\%opt, @valid_args, "help|usage|?", "man") || pod2usage(2);
 
 pod2usage(1)  if ($opt{help});
 pod2usage(-exitval => 0, -verbose => 2)  if ($opt{man});
-
-use Data::Dumper;
-say Data::Dumper->Dump([\%opt,\@ARGV], [qw(opt ARGV)]);
 
 #   
 # --input ?
@@ -125,8 +122,14 @@ if ( exists $opt{input} ) {
 } # end --input
 
 my $ret = Migrations::Parameters::validate_arguments(\%opt, \%expected_args);
+if ( $ret ) {
+    $! = $ret;
+    die '[F] Error(s) with the arguments. Abort.';
+}
 
-
+if ( -e $opt{output} ) {
+    die "[F] $opt{output} already exists. Abort.";
+}
 
 exit 0;
 
