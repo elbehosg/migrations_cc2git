@@ -2,35 +2,61 @@
 
 use strict;
 use warnings;
-use Test::More tests => 7;
+use Test::Mock::Clearcase;
+use Test::More;# tests => 20;
 
 use Data::Dumper;
 
 BEGIN {
-    diag('Testing Clearcase-related functions...'):
+    diag('Testing Clearcase-related functions, mocking Clearcase...'):
     use_ok('Migrations::Clearcase');
 }
 
-my $ct = Migrations::Clearcase::where_is_cleartool();
-if ( defined $ct ) {
-    diag("cleartool found at $ct");
-    ok(-x $ct, "cleartool is known.");
-} else {
-    ok(1, "Cannot find cleartool neither in PATH, ATRIA_HOME/bin nor /usr/atria/bin (*nix only).");
-}
-
-
-my $r = Migrations::Clearcase::cleartool('-booh');
-ok($r eq 'cleartool: Error: Unrecognized command: "-booh"
-', 'Migrations::Clearcase::cleartool(-booh)');
-my @r = Migrations::Clearcase::cleartool('-booh');
-ok(scalar @r == 2, 'Migrations::Clearcase::cleartool(-booh)');
-ok( ($r[0] == 1 and $r[1] eq 'cleartool: Error: Unrecognized command: "-booh"
-'), 'Migrations::Clearcase::cleartool(-booh)');
+my $mock = Test::Mock::Clearcase->new ();
 
 @r = Migrations::Clearcase::cleartool('-ver');
 ok(scalar @r > 2, 'Migrations::Clearcase::cleartool(-ver)');
 ok($r[0] == 0, 'Migrations::Clearcase::cleartool(-ver)');
+ok($r[1] eq 'ClearCase version 8.0.0.01 (Wed Dec 28 01:01:29 EST 2011) (8.0.0.01.00_2011D.FCS)',  'Migrations::Clearcase::cleartool(-ver)');
+
+$r = Migrations::Clearcase::region();
+ok($r eq 'Dev_ice_ux', 'Migrations::Clearcase::region()');
+
+$r = Migrations::Clearcase::registry();
+ok($r eq 'dgcl04.info.si.socgen', 'Migrations::Clearcase::registry()');
+
+$r = Migrations::Clearcase::is_a_pvob();
+ok($r == 2, 'Migrations::Clearcase::is_a_pvob()');
+$r = Migrations::Clearcase::is_a_pvob('');
+ok($r == 2, 'Migrations::Clearcase::is_a_pvob("")');
+$r = Migrations::Clearcase::is_a_pvob('this is not a valid vob tag');
+ok($r == 2, 'Migrations::Clearcase::is_a_pvob("this is not a valid vob tag")');
+$r = Migrations::Clearcase::is_a_pvob('/vobs/PVOB_MA');
+ok($r == 0, 'Migrations::Clearcase::is_a_pvob("/vobs/PVOB_MA")   (PVOB)');
+$r = Migrations::Clearcase::is_a_pvob('/vobs/MA1');
+ok($r == 1, 'Migrations::Clearcase::is_a_pvob("/vobs/MA1")       (VOB)');
+$r = Migrations::Clearcase::is_a_pvob('/vobs/MA');
+ok($r == 2, 'Migrations::Clearcase::is_a_pvob("/vobs/MA")        (no tag)');
+
+
+$r = Migrations::Clearcase::check_stream();
+ok(!defined $r, 'Migrations::Clearcase::check_stream()');
+$r = Migrations::Clearcase::check_stream('OPE_R9.1_Ass');
+ok(!defined $r, 'Migrations::Clearcase::check_stream("OPE_R9.1_Ass")');
+$r = Migrations::Clearcase::check_stream('OPE_R9.1_Ass@');
+ok(!defined $r, 'Migrations::Clearcase::check_stream("OPE_R9.1_Ass@")');
+$r = Migrations::Clearcase::check_stream('@/vobs/PVOB_MA');
+ok(!defined $r, 'Migrations::Clearcase::check_stream("@/vobs/PVOB_MA")');
+
+$r = Migrations::Clearcase::check_stream('OPE_R9.1_Ass@/vobs/PVOB_MA');
+ok($r eq 'OPE_R9.1_Ass', 'Migrations::Clearcase::check_stream("OPE_R9.1_Ass@/vobs/PVOB_MA")');
+@r = Migrations::Clearcase::check_stream('OPE_R9.1_Ass@/vobs/PVOB_MA');
+ok((scalar @r == 2 and $r[0] eq 'OPE_R9.1_Ass' and $r[1] eq '/vobs/PVOB_MA'), 'Migrations::Clearcase::check_stream("OPE_R9.1_Ass@/vobs/PVOB_MA")');
+
+$r = Migrations::Clearcase::check_stream('OPE_R9.1_Ass@/vobs/MA1');
+ok(!defined, 'Migrations::Clearcase::check_stream("OPE_R9.1_Ass@/vobs/MA1")');
+$r = Migrations::Clearcase::check_stream('no_such_a_stream@/vobs/PVOB_MA');
+ok(!defined $r, 'Migrations::Clearcase::check_stream("no_such_a_stream@/vobs/PVOB_MA")');
 
 
 print "\n";
