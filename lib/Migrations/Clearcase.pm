@@ -349,12 +349,6 @@ sub get_components
     # should not fail as check_stream($stream) validated it as stream:
     return undef unless ( defined $e and $e == 0);
     return undef unless scalar @comps;
-    my @comps2 = ();
-    for my $c ( @comps ) {
-        my ($e, $cvob) = cleartool("lsstream -fmt '%[root_dir]p'", $c);
-        next unless ( $e == 0);
-        
-    }
     return wantarray ? @comps : ( join ',',@comps);
 }
 #------------------------------------------------
@@ -369,12 +363,12 @@ sub get_components
 #
 # RETURN (scalar context)
 #     undef if the stream is invalid or cleartool doesn't exist
-#     component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2
+#     VOBTAG1/comp1,VOBTAG2/comp2,VOBTAG2/comp3
 #           if everything's ok
 #
 # RETURN (array context)
 #     (undef) if the stream is invalid or cleartool doesn't exist
-#     (component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2)
+#     (VOBTAG1/comp1,VOBTAG2/comp2,VOBTAG2/comp3)
 #           if everything's ok
 #------------------------------------------------
 sub get_components_rootdir
@@ -384,7 +378,7 @@ sub get_components_rootdir
     my @rootdirs = ();
 
     for my $c ( @list ) {
-        my ($e, $cvob) = cleartool("lsstream -fmt '%[root_dir]p'", $c);
+        my ($e, $cvob) = cleartool("lscomp -fmt '%[root_dir]p'", $c);
         if ( defined $e and $e == 0 ) {
             push @rootdirs, $cvob;
         } else {
