@@ -5,8 +5,95 @@ use strict;
 use warnings;
 
 use Test::Mock::Simple;
+use Readonly;
 
 our $VERSION = '0.0.1';
+
+
+
+#------------------------------------------------
+#
+#    CONVENIENT FUNCTIONS AND VARIABLES
+#    (because some 'hard wired returns' can be
+#    deduced one from each others, and maybe in
+#    case of updates, it'll be easier just
+#    to update the "seed" than any single value.
+#
+#------------------------------------------------
+
+#
+# cleartool desc -fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/PVOB_MA
+#
+Readonly::Scalar my $var_components_NXp => 'component:Donnees_Client@/vobs/PVOB_CHOPIN
+component:socle-maven-particulier@/vobs/PVOB_CHOPIN
+component:Equipement@/vobs/PVOB_CHOPIN
+component:rdv-relance-client-part-ejb@/vobs/PVOB_MA
+component:ficp-war@/vobs/PVOB_CHOPIN
+component:OME_TransfertPEA@/vobs/PVOB_CHOPIN
+component:Tableau_de_Bord@/vobs/PVOB_CHOPIN
+component:ficp-ejb@/vobs/PVOB_CHOPIN
+component:Mandataires@/vobs/PVOB_CHOPIN
+component:assurance-mrh@/vobs/PVOB_MA
+component:GDC_Credits@/vobs/PVOB_CHOPIN
+component:Mifid@/vobs/PVOB_CHOPIN
+component:Epargne@/vobs/PVOB_CHOPIN
+component:GDC_ExtensionTransfo@/vobs/PVOB_CHOPIN
+component:GDC_Cloture@/vobs/PVOB_CHOPIN
+component:GDC_Compte_Courant@/vobs/PVOB_CHOPIN
+component:dossier-client@/vobs/PVOB_CHOPIN
+component:Composant_Mifid@/vobs/PVOB_CHOPIN
+component:GDC_Credits_CT@/vobs/PVOB_CHOPIN
+component:par-communs@/vobs/PVOB_CHOPIN
+component:GDC_Epargne_CERS@/vobs/PVOB_CHOPIN
+component:bad@/vobs/PVOB_MA
+component:Assurance_IARD@/vobs/PVOB_CHOPIN
+component:GDC_Package@/vobs/PVOB_CHOPIN
+component:Epargne_Logement@/vobs/PVOB_CHOPIN
+component:GDC_Titres@/vobs/PVOB_CHOPIN
+component:tracabilite-assurance@/vobs/PVOB_CHOPIN
+component:Cartes_Bancaires@/vobs/PVOB_CHOPIN
+component:bel@/vobs/PVOB_CHOPIN
+component:GDC_Services_en_Lignes_1@/vobs/PVOB_CHOPIN
+component:Services_en_Lignes_2@/vobs/PVOB_CHOPIN
+component:GDC_Client@/vobs/PVOB_CHOPIN
+component:Patrimoine@/vobs/PVOB_CHOPIN
+component:GDC_Contrat@/vobs/PVOB_CHOPIN
+component:integration-maven-particulier@/vobs/PVOB_CHOPIN
+component:bilan-epargne@/vobs/PVOB_MA
+component:Composant_Mandataires@/vobs/PVOB_CHOPIN
+component:GDC_Prospect@/vobs/PVOB_CHOPIN
+';
+
+
+#------------------------------------------------
+# components_Nxp()
+#------------------------------------------------
+sub components_NXp
+{
+   return wantarray ? ( split /\n/, $var_components_NXp ) : $var_components_NXp;
+}
+
+#------------------------------------------------
+# components_Np()
+#------------------------------------------------
+sub components_Np
+{
+   my @NXp = split /\n/, $var_components_NXp;
+   my @Np = map { m%^component:([^@]+?)@/vobs/PVOB_\w+$% ; $1} @NXp;
+   return wantarray ? @Np : ( join "\n",@Np);
+}
+#------------------------------------------------
+
+Readonly::Scalar my $var_baselines => '1.18.8.0-SNAPSHOT';
+#------------------------------------------------
+# baselines()
+#------------------------------------------------
+sub baselines
+{
+   my @bls = map { $var_baselines . '_' . $_ . '@/vobs/PVOB_MA' } components_Np();
+   return wantarray ? @bls : ( join "\n", @bls );
+}
+
 
 
 
@@ -15,6 +102,7 @@ our $VERSION = '0.0.1';
 #    MOCKED FEATURES
 #
 #------------------------------------------------
+
 
 #------------------------------------------------
 sub ct_bad_cmd
@@ -199,7 +287,8 @@ SWITCH_LSSTREAM: {
 
     # a valid case
     if ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/PVOB_MA" ) {
-        $s = 'component:Donnees_Client@/vobs/PVOB_CHOPIN
+        $s = components_NXp();
+my $to_remove_after_successfull_tests='component:Donnees_Client@/vobs/PVOB_CHOPIN
 component:socle-maven-particulier@/vobs/PVOB_CHOPIN
 component:Equipement@/vobs/PVOB_CHOPIN
 component:rdv-relance-client-part-ejb@/vobs/PVOB_MA
@@ -242,44 +331,7 @@ component:GDC_Prospect@/vobs/PVOB_CHOPIN';
 
     # a valid case
     if ( join(' ',@parms) eq "-fmt '%[components]Np' stream:PARTICULIER_Mainline@/vobs/PVOB_MA" ) {
-        $s = 'Donnees_Client
-socle-maven-particulier
-Equipement
-rdv-relance-client-part-ejb
-ficp-war
-OME_TransfertPEA
-Tableau_de_Bord
-ficp-ejb
-Mandataires
-assurance-mrh
-GDC_Credits
-Mifid
-Epargne
-GDC_ExtensionTransfo
-GDC_Cloture
-GDC_Compte_Courant
-dossier-client
-Composant_Mifid
-GDC_Credits_CT
-par-communs
-GDC_Epargne_CERS
-bad
-Assurance_IARD
-GDC_Package
-Epargne_Logement
-GDC_Titres
-tracabilite-assurance
-Cartes_Bancaires
-bel
-GDC_Services_en_Lignes_1
-Services_en_Lignes_2
-GDC_Client
-Patrimoine
-GDC_Contrat
-integration-maven-particulier
-bilan-epargne
-Composant_Mandataires
-GDC_Prospect';
+        $s = components_Np();
         last;
     }
 
@@ -519,6 +571,7 @@ sub mocked_cleartool
 #------------------------------------------------
 
 
+1;
 
 __END__
 

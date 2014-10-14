@@ -12,6 +12,7 @@ WriteMakefile(
     BUILD_REQUIRES => {
         'Test::More'          => 0.98,
         'Test::Mock::Simple' => '0.04',
+        'Readonly'           => '2.00',
     },
     PREREQ_PM  => {
         #'Moo' => 1.000008,
