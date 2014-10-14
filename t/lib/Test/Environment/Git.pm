@@ -73,24 +73,50 @@ sub GitCommit
     return $ret;
 }
 
-sub InitRepo
+sub GitBranch
 {
     my $self = shift;
-    return undef if ( ! $self->TestIfGitExists() );
-
-    chdir($self->{dirname});
+    my $branch = shift;
+    die 'GitBranch called without branch name to create' unless ( defined $branch and $branch ne '' );
     my ($in,$out,$err);
-    my @cmd = ( 'git', 'init', $self->{'basename'} );
+    my @cmd = ( 'git', 'branch', $branch );
     my $ret = IPC::Run::run(\@cmd,\$in,\$out,\$err); 
     $self->{last_stdout} = $out;
     $self->{last_stderr} = $err;
     return $ret;
 }
 
+sub InitRepo
+{
+    my $self = shift;
+    return undef if ( ! $self->TestIfGitExists() );
+
+    my $old = File::Spec->curdir;
+    chdir($self->{dirname});
+    my ($in,$out,$err);
+    my @cmd = ( 'git', 'init', $self->{'basename'} );
+    my $ret = IPC::Run::run(\@cmd,\$in,\$out,\$err); 
+    $self->{last_stdout} = $out;
+    $self->{last_stderr} = $err;
+    chdir($old);
+    return $ret;
+}
+
+sub Branch
+{
+    my $self = shift;
+
+    my $old = File::Spec->curdir;
+    chdir($self->{fullname});
+    $self->GitBranch(@_);
+    chdir($old);
+}
+
 sub CommitA
 {
     my $self = shift;
 
+    my $old = File::Spec->curdir;
     chdir($self->{fullname});
     open my $f, '>', 'file1.txt' or die "Cannot create file1.txt in $self->{fullname}. Abort.\n";
     for my $i ( 1..5 ) {
@@ -110,12 +136,14 @@ pm_to_blib
 
     $self->GitAdd();
     $self->GitCommit('A');
+    chdir($old);
 }
 
 sub CommitB
 {
     my $self = shift;
 
+    my $old = File::Spec->curdir;
     chdir($self->{fullname});
     mkdir 'dir1';
     chdir('dir1');
@@ -129,12 +157,14 @@ sub CommitB
     chdir('..');
     $self->GitAdd();
     $self->GitCommit('B');
+    chdir($old);
 }
 
 sub CommitC
 {
     my $self = shift;
 
+    my $old = File::Spec->curdir;
     chdir($self->{fullname});
     open my $f, '>', 'file1.txt' or die "Cannot modify file1.txt in $self->{fullname}. Abort.\n";
     for my $i ( 1..3 ) {
@@ -151,15 +181,18 @@ sub CommitC
     close $f;
     $self->GitAdd();
     $self->GitCommit('C');
+    chdir($old);
 }
 
 sub ResetRepo
 {
     my $self = shift;
+    my $old = File::Spec->curdir;
     chdir($self->{dirname});
     if ( -d $self->{basename} ) {
         remove_tree ($self->{basename}, { error => $self->{last_err} });
     }
+    chdir($old);
 }
 
 

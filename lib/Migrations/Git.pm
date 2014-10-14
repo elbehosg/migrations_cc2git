@@ -9,6 +9,8 @@ our $VERSION = '0.0.1';
 use Carp;
 use Log::Log4perl qw(:easy);
 use File::Spec;
+use IPC::Run;
+use LWP::UserAgent;
 
 #------------------------------------------------
 # 
@@ -73,12 +75,14 @@ sub where_is_git
 #    ARRAY : ()
 # RETURN with arguments:
 #    SCALAR context:
-#    what the command returned on STDOUT+STDERR
+#    what the command returned on STDOUT or 
+#        on STDERR if there's nothing on STDOUT
+#    or undef if the command cannot be run
 #
 #    ARRAY context:
-#    (undef) if git cannot be found
-#    the return code of git as 1st element,
-#    then each line of STDOUT+STDERR (1 line = 1 element)
+#    the return code of IPC::Run::run(git,arg1,arg2)  as 1st element,
+#    STDOUT as 2nd arg, STDERR as 3rd arg
+#    If IPC::Run::run() raises an execption, it returns (undef,$@)
 # 
 #------------------------------------------------
 sub git
@@ -103,15 +107,16 @@ sub git
 
     # Assume the arguments have been sanitized
     # (They should not come from the user)
-    my $cmd = join ' ', $GIT, @args;
-    # cannot use open with a list because redirect of STDERR does not work
-    # to improve, have a look on IPC::Open3 or IPC::Run or alike
-    open my $git, '-|', $cmd . ' 2>&1'      or LOGDIE "[F] Cannot execute $cmd. Abort.";
-    my @ret = <$git>;
-    close $git;
-    my $r = $? >>8;
-    return wantarray ? ($r, @ret) : (join '', @ret);
-
+    my ($in,$r,$out,$err);
+    my @cmd = ( $GIT, @args );
+    eval {
+        $r = IPC::Run::run(\@cmd,\$in,\$out,\$err);
+    };
+    if ( $@ ) {
+        return wantarray ? (undef, $@) : undef;
+    } else {
+        return wantarray ? ($r,$out,$err) : ($out||$err);
+    }
 }
 # end of git()
 #------------------------------------------------
@@ -179,24 +184,27 @@ sub check_remote_repo
             $url =~s%://%://$user:$pass\@%;
         }
     }
-    my $repo = substr($url, index($url, '?'));
+    my $repo = substr($url, index($url, '?')+1);
 
     my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:17.0) Gecko/20100101 Firefox/17.0');
     my $req = HTTP::Request->new(GET => "$url");
     my $res = $ua->request($req);
     #DEBUG "[D] [" . $req->uri . "] code : " . $res->code . "\n"; # commented out because it may display crendentials
+    DEBUG "[D] [url hidden] code        : " . $res->code . "\n";
+    DEBUG "[D] [url hidden] status_line : " . $res->status_line . "\n";
+    DEBUG "[D] [url hidden] content     : " . $res->content . "\n";
 
     unless ( $res->is_success ) {
         WARN "[W] Error on [$url]: " . $res->status_line . "\n";
-        return wantarray ? (0, $res->status_line) : 0;
+        return wantarray ? ($res->code, $res->status_line) : $res->code ;
     }
 
     my @l = split '\n',$res->content;
     shift @l;
     shift @l;
 
-    if ( defined $l[0] ) {
-        return 1 if ( substr($l[0], 8) eq $repo )
+    for my $r ( @l ) {
+        return 1 if ( substr($r, 5) eq $repo );
     }
     return 0;
 }
@@ -205,23 +213,46 @@ sub check_remote_repo
 
 
 #------------------------------------------------
+# check_branch
+#
+# Check if the branch exists in the local repo
+#
+# IN:
+#    $repo   = the local repo
+#    $branch = the branch in the local repo (or not)
+#
+# RETURN:
+#    1 if the branch exists in the repo
+#    0 if not
+#    0 if the repo does not exist
+#    undef if an argument is missing
+#
 #------------------------------------------------
-sub clone_repo
+sub check_branch
 {
-    my $url = shift;
-    my $dirname = shift;
-    my $clone = shift;
-    my $user = shift;
-    my $pass = shift;
+    my $repo   = shift;
+    my $branch = shift;
 
-    # check args
-    # check $path
-    # check repo ?
-    # clone
-    # return 
+    return undef unless ( defined $repo and defined $branch);
+    return 0 unless ( check_local_repo($repo) );
 
+    my $return = 4;
+    my $cwd = File::Spec->curdir();
+    chdir $repo;
+    my ($r,$o,$e) = git('branch', '--list');
+    if ( length $o ) {
+        return grep { substr($_,2) eq $branch } split ('\n', $o);
+    } else {
+        $return = 0;
+    }
+    chdir $cwd;
+
+    return $return;
 }
-# end of clone_repo()
+# end of check_branch()
+#------------------------------------------------
+
+
 #------------------------------------------------
 
 
