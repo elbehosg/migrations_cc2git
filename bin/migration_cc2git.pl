@@ -8,6 +8,8 @@ use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage qw(pod2usage);
 use Log::Log4perl qw(:easy);
 use Data::Dumper;
+use File::Path qw(remove_tree);
+use File::Temp;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
@@ -15,43 +17,69 @@ use lib "$FindBin::Bin/../lib";
 use Migrations::Parameters;
 use Migrations::Clearcase;
 use Migrations::Git;
+use Migrations::Migrate;
 
 our $VERSION = '1.0.0';
 
 
 
 #------------------------------------------------
-# init_logs()
+# undo_all
 #
-# Initialize Log::Log4perl
+# Undo the ops that have created something until
+# a fatal error occured
+# The ops are processed in reverse order.
 #
-# IN: 
-#    logfile: the output of the logger
+# IN:
+#   array of { key, value } : 
+#       key is the kind of the entity to undo (stream, view)
+#       value is the name
+#
+# RETURN:
+#   number of successfull undos
+#
 #------------------------------------------------
-sub init_logs
+sub undo_all
 {
-    my $logfile = shift // "STDOUT";
+    my @undo = @_;
 
-    Log::Log4perl->easy_init( { level    => $DEBUG,
-                                file     => $logfile,
-                                layout   => '%m%n',
-                              },
-                            ); 
-
-
-    # Log::Log4perl->easy_init( { level    => $DEBUG,
-    #                             file     => ">>test.log",
-    #                             category => "Migrations::Parameters",
-    #                             layout   => '%F{1}-%L-%M: %m%n' },
-    #                           { level    => $DEBUG,
-    #                             file     => "STDOUT",
-    #                             category => "main",
-    #                             layout   => '%m%n' },
-    #                         );
-
+    my @success = ();
+    for my $u ( reverse @undo ) {
+        my ($k, $v) = each %$u;
+        if ( $k eq 'stream' ) {
+            my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $v);
+            if ( $e ) {
+                ERROR "[E] Impossible de supprimer le stream $v.";
+            } else {
+                push @success, $u;
+            }
+            next;
+        }
+        if ( $k eq 'view' ) {
+            my ($e,$r) = Migrations::Clearcase::cleartool('rmview ', '-tag ', $v);
+            if ( $e ) {
+                ERROR "[E] Impossible de supprimer la vue $v.";
+            } else {
+                push @success, $u;
+            }
+            next;
+        }
+        if ( $k eq 'file' ) {
+            my $e = unlink $v;
+            if ( $e != 1 ) {
+                ERROR "[E] Impossible de le fichier $v ($!).";
+            } else {
+                push @success, $u;
+            }
+            next;
+        }
+    }
+    return @success;
 }
-# end of init_logs()
+# end of undo_all()
 #------------------------------------------------
+my @undo = ();
+
 
 
 #
@@ -128,7 +156,7 @@ my %expected_args = (
     );
 # end of %expected_args
 
-init_logs();
+Migrations::Migrate::init_logs();
 
 my %opt;
 my @valid_args = Migrations::Parameters::list_for_getopt(\%expected_args);
@@ -170,7 +198,7 @@ if ( $ret ) {
 
 if ( -e $opt{logfile} ) {
     WARN "[W] $opt{logfile} already exists. Will be appended.";
-    init_logs(">>".$opt{logfile});
+    Migrations::Migrate::init_logs(">>".$opt{logfile});
     INFO '
 
 -----------------------------------------------------------------------
@@ -180,7 +208,7 @@ if ( -e $opt{logfile} ) {
     if ( $opt{logfile} eq '-' ) {
         $opt{logfile} = 'STDOUT';
     }
-    init_logs($opt{logfile});
+    Migrations::Migrate::init_logs($opt{logfile});
 }
 
 if ( exists $opt{bls} ) {
@@ -204,6 +232,10 @@ my $s = sprintf("[I] %-15s %s\n",'OS courant',$^O);
 INFO $s;
 INFO "[I] ";
 
+#
+# VERIFICATIONS CLEARCASE, GIT
+#
+
 INFO "[I] Est-ce que Clearcase est installe ?";
 my $ct = Migrations::Clearcase::where_is_cleartool();
 if ( !defined $ct ) {
@@ -225,6 +257,11 @@ my @components = Migrations::Clearcase::get_components($opt{stream});
 if ( ! defined $components[0] ) {
     LOGDIE('[F] Impossible de récupérer la liste des composants de ' . $opt{stream} . '. Fatal.');
 }
+my @components_rootdir = Migrations::Clearcase::get_components_rootdir(@components);
+if ( ! defined $components_rootdir[0] ) {
+    LOGDIE('[F] Impossible de récupérer les rootdir des composants de ' . $opt{stream} . '. Fatal.');
+}
+
 
 INFO "[I] ";
 
@@ -246,29 +283,6 @@ INFO "[I] Baseline recomposée :";
 INFO "[I]   $_" for ( @baselines );
 
 INFO "[I] ";
-
-
-INFO "[I] Création du stream d'export";
-# on cree le stream (-ro)
-my $stream4export = Migrations::Clearcase::make_stream($opt{stream}, (join ',', @baselines));
-if ( ! defined $stream4export ) {
-    LOGDIE "[F] Impossible de creer le stream Clearcase pour l'export. Abort.";
-}
-
-# on cree la vue sur le stream
-my $u = $ENV{USERNAME} // ( $ENV{LOGNAME} // ( $ENV{LOGNAME} // 'unknownuser' ) );
-$s = substr($stream4export,7);
-$s = substr($s, 0, index($s,'@'));
-my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
-
-if ( ! defined $viewtag ) {
-    my $err = "[F] Impossible de creer la vue Clearcase pour l'export. Abort.";
-    my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $stream4export);
-    if ( $e ) {
-      $err .= "\n[F] Impossible de supprimer le stream d'export ($stream4export). Abort.";
-    }
-    LOGDIE $err;
-}
 
 
 # on teste l'etat de git
@@ -295,30 +309,113 @@ if ( ! Migrations::Git::check_branch($opt{repo}, $opt{branch}) ) {
 INFO "[I] La branche $opt{branch} existe dans le depot $opt{repo}.";
 
 
+
+#
+#   ON PREPARE LE TERRAIN
+#
+
+INFO "[I] Création du stream d'export";
+# on cree le stream (-ro)
+my $stream4export = Migrations::Clearcase::make_stream($opt{stream}, (join ',', @baselines));
+if ( ! defined $stream4export ) {
+    LOGDIE "[F] Impossible de creer le stream Clearcase pour l'export. Abort.";
+}
+push @undo, { stream => $stream4export };
+
+
+# on cree la vue sur le stream
+my $u = $ENV{USERNAME} // ( $ENV{LOGNAME} // ( $ENV{LOGNAME} // 'unknownuser' ) );
+$s = substr($stream4export,7);
+$s = substr($s, 0, index($s,'@'));
+my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
+if ( ! defined $viewtag ) {
+    my $err = "[F] Impossible de creer la vue Clearcase pour l'export. Abort.";
+    undo_all(@undo);
+    LOGDIE $err;
+}
+push @undo, { view => $viewtag };
+
+
 INFO "[I] Préparatif de la branche $opt{branch}.";
-my$old_cwd = File::Spec->curdir;
+my $old_cwd = File::Spec->curdir;
 chdir $opt{repo};
-Migration::Git::git('checkout', $opt{branch});
+Migrations::Git::git('checkout', $opt{branch});
 my %cc2git;
 if ( -f 'matching_clearcase_git.txt' ) {
-    open my $f, '<', 'matching_clearcase_git.txt' or LOGDIE("Cannot open 'matching_clearcase_git.txt' although -f says it's here. Abort.");
-    while ( <$f> ) {
-        s/#.*//; s/^\s+//; s/\s+$//;
-        next unless length;
-        # VOB/component_clearcase | directory_git
-        my ($cc,$git) = split '|';
-        $git =~ s/^\s+//; $git =~ s/\s+$//;
-        next if (index($git,'/') != -1 ); # no slash, no pipe
-        remove_tree($git);
+    my $r = Migrations::Migrate::read_matching_file(\%cc2git, File::Spec->catfile( File::Spec->splitdir($opt{repo}), 'matching_clearcase_git.txt'));
+    LOGDIE("Cannot open 'matching_clearcase_git.txt' although -f says it's here. Abort.") unless ( defined $r );
+    while ( my ($k, $v ) = each %cc2git ) {
+        next if (index($v,'/') != -1 ); # no slash allowed in git part
+        remove_tree($v);
     }
-    close $f;
 } else {
-    # touch hing_clearcase_git.txt
+    # touch matching_clearcase_git.txt
     open my $f, '>', 'matching_clearcase_git.txt' or LOGDIE("Cannot create an empty 'matching_clearcase_git.txt'. Abort.");
     close $f;
+    push @undo, { file =>  File::Spec->catfile( File::Spec->splitdir($opt{repo}), 'matching_clearcase_git.txt') };
+}
+#
+# Assumption :
+# the current directory does not contain any directory matching a Clearcase component
+
+
+#
+# MIGRATION PROPREMENT DITE
+#
+
+my $fh = File::Temp->new(UNLINK => 0, TEMPLATE => 'migrate_XXXXXX', SUFFIX => '.pl', TMPDIR => 1);
+print $fh "#!$^X
+
+use Log::Log4perl qw(:easy);
+use lib \"" . $FindBin::Bin . "/../lib\";
+
+
+";
+open my $pm, '<', $INC{'Migrations/Migrate.pm'} or die "Cannot open " . $INC{'Migrations/Migrate.pm'} . " : $!";
+{
+   local $/ = undef;
+   my $str = <$pm>;
+   print $fh $str;
+   close $pm;
 }
 
-# cleartool setview ...
+print $fh '
+
+Migrations::Migrate::init_logs(">>'. $opt{logfile} . '");
+my $r = Migrations::Migrate::migrate_UCM("'. $opt{repo}.'",';
+print $fh join (',', map { "'".$_."'" } @components_rootdir);
+print $fh ');
+
+if ( $r == 0 ) {
+    INFO "[I] Migration succeeded.";
+} elsif ( $r == 1 ) {
+    WARN "[W] Migration succeeded with warnings.";
+} else {
+    ERROR "[E] Migration failed.";
+}
+exit 0;
+
+__END__
+
+
+';
+
+print "
+
+======> $fh
+
+";
+$fh->close();
+
+if ( chmod(0755,$fh->filename) != 1 ) {
+    ERROR "[E] Cannot chmod 0755 $fh";
+}
+
+
+exit 0;
+
+# cleartool setview -exec 
+my ($e,$r) = Migrations::Clearcase::cleartool('setview ', '-exec ', $fh->filename,  $viewtag);
 
 
 
@@ -362,6 +459,11 @@ if ( -f 'matching_clearcase_git.txt' ) {
 INFO "[I] That's all folks!";
 
 exit 0;
+
+END {
+    print "To END\n";
+    print Dumper(\@undo);
+}
 
 __END__
 
