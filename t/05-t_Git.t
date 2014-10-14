@@ -50,13 +50,15 @@ usage: git [--version] [--help] [-C <path>] [-c name=value]
     #ok($r[0] == 0, 'Migrations::Git::git(--version)');
 
     diag("Initialize a test repo...");
-    my $repo = Test::Environment::Git->new('make_test');
+    my $repo = Test::Environment::Git->new('make_test',0);
     $repo->InitRepo();
     $repo->CommitA();
     $repo->Branch('brA');
+    $repo->Tag('tagsT1');
     $repo->CommitB();
     $repo->Branch('brAnchB');
     $repo->CommitC();
+    $repo->Tag('tags/T4');
     $repo->Branch('branChC');
     $r = Migrations::Git::check_local_repo();
     is($r, '0', 'Migrations::Git::check_local_repo()');
@@ -76,6 +78,17 @@ usage: git [--version] [--help] [-C <path>] [-c name=value]
     $r = Migrations::Git::check_branch($repo->{fullname},'brA');
     is($r, '1', 'Migrations::Git::check_branch(make_test,brA)');
 
+    $r = Migrations::Git::check_tag();
+    is($r, undef, 'Migrations::Git::check_tag()');
+    $r = Migrations::Git::check_tag($repo->{fullname});
+    is($r, undef, 'Migrations::Git::check_tag($repo->{fullname})');
+    $r = Migrations::Git::check_tag('make_test22');
+    is($r, undef, 'Migrations::Git::check_tag(make_test22)');
+    $r = Migrations::Git::check_tag($repo->{fullname},'tags/t4');
+    is($r, '0', 'Migrations::Git::check_tag(make_test,tags/t4)');
+    $r = Migrations::Git::check_tag($repo->{fullname},'tagsT1');
+    is($r, '1', 'Migrations::Git::check_tag(make_test,tagsT1)');
+
 
     diag('Check a remote repo (testing)...');
     $r = Migrations::Git::check_remote_repo();
@@ -84,7 +97,7 @@ usage: git [--version] [--help] [-C <path>] [-c name=value]
     is($r, '401', 'Migrations::Git::check_remote_repo(http://dgcllx12.dns21.socgen:8080/git?testing)');
     $r = Migrations::Git::check_remote_repo('http://dgcllx12.dns21.socgen:8080/git/info?testing)', 'x120248', '');
     is($r, '401', 'Migrations::Git::check_remote_repo(http://dgcllx12.dns21.socgen:8080/git/info?testing, x120248, )');
-    $r = Migrations::Git::check_remote_repo('http://dgcllx12.dns21.socgen:8080/git/info?testing', 'x120248', '=kural3Xu');
+    $r = Migrations::Git::check_remote_repo('http://dgcllx12.dns21.socgen:8080/git/info?testing', 'x120248', '=eeB4oode');
     is($r, '1', 'Migrations::Git::check_remote_repo(http://dgcllx12.dns21.socgen:8080/git?testing, x120248, s3cr3t)');
 }
 
