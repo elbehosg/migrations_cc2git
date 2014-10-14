@@ -77,7 +77,7 @@ sub where_is_cleartool
 # RETURN with arguments:
 #    SCALAR context:
 #    undef if cleartool cannot be found
-#    what the commabnd returned on STDOUT+STDERR
+#    what the command returned on STDOUT+STDERR
 #
 #    ARRAY context:
 #    (undef) if cleartool cannot be found
@@ -237,12 +237,77 @@ sub check_stream
     # $p is a PVOB
 
     # is $s a stream of $p?
+    $s=~ s/^stream://;   # in case of...
     my ($err,@desc) = cleartool('desc -s stream:'.$stream);
     return undef if ( ! defined $err );
     return undef if $err ;
 
     return wantarray ? ($s,$p) : $s;
 }
+#------------------------------------------------
+
+
+#------------------------------------------------
+# compose_baseline()
+#
+# Compose the baseline using a X.Y.Z-SNAPSHOT notation
+# to obtain a comp1_X.Y.Z-SNAPSHOT,comp2_X.Y.Z-SNAPSHOT
+# string (or an array).
+#
+# Assumes cleartool does exists!
+#
+# RETURN (scalar context)
+#     undef if the stream is invalid or cleartool doesn't exist or
+#           if there's no such a X.Y.Z-SNAPSHOT on the stream
+#     comp1_X.Y.Z-SNAPSHOT,comp2_X.Y.Z-SNAPSHOT,comp3_X.Y.Z-SNAPSHOT
+#           if everything's ok
+#
+# RETURN (array context)
+#     (undef) if the stream is invalid or cleartool doesn't exist or
+#             if there's no such a X.Y.Z-SNAPSHOT on the stream
+#     (comp1_X.Y.Z-SNAPSHOT,comp2_X.Y.Z-SNAPSHOT,comp3_X.Y.Z-SNAPSHOT)
+#           if everything's ok
+# 
+#------------------------------------------------
+sub compose_baseline
+{
+    my $stream = shift;
+    my $baseline = shift;
+
+    return undef unless ( defined $stream and defined $baseline );
+#warn("[D] stream = $stream \t baseline = $baseline\n");
+    return undef unless ( defined check_stream($stream) );
+
+    my $pvob = $stream;
+    substr($pvob, 0, index($pvob,'@',0)+1) = '';
+    # force $stream to be : stream:xxxx@PVOB
+    $stream =~ s/^stream://;
+    $stream = "stream:$stream";
+
+    my ($e, @comps) = cleartool("lsstream -fmt '%[components]Np' " . $stream);
+    # should not fail as check_stream($stream) vvalidated it as stream:
+    return undef unless defined $e;
+    return undef if $e;
+
+    my @bls = ();
+    for my $c ( @comps ) {
+#warn("[D]     component $c\n");
+        $c =~ s/^component://;
+        my $cc = $baseline .'_' . $c . '@' . $pvob ;
+        #my $cc = $baseline .'_' . $c;
+        my ($e, $bl) = cleartool('lsbl -s ', $cc);
+        if ( !defined $e or $e ) {
+            WARN "[W] No baseline '$baseline' for component '$c'.";
+#warn ('BURP');
+        } else {
+            push @bls, $cc;
+        }
+    }
+
+    return undef unless scalar @bls;
+    return wantarray ? @bls : ( join ',',@bls);
+}
+# end of compose_baseline()
 #------------------------------------------------
 
 

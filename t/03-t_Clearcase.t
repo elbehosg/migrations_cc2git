@@ -7,9 +7,10 @@ use Test::More tests => 7;
 use Data::Dumper;
 
 BEGIN {
-    diag('Testing Clearcase-related functions...'):
     use_ok('Migrations::Clearcase');
 }
+
+diag("\nTesting Clearcase-related functions...");
 
 my $ct = Migrations::Clearcase::where_is_cleartool();
 if ( defined $ct ) {

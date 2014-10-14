@@ -81,10 +81,12 @@ my %expected_args = (
         },
     baseline => {
         mandatory_unless => [ 'bls' ],
+        exclude => [ 'bls' ],
         getopt => 'baseline=s',
         },
     bls => {
         mandatory_unless => [ 'baseline' ],
+        exclude => [ 'baseline' ],
         getopt => 'bls=s@',
         },
     interactive => {
@@ -185,9 +187,13 @@ INFO "[I] Demarrage de la migration Clearcase --> Git";
 INFO "[I] ";
 INFO "[I] Parametres d'appel :";
 for my $k ( sort keys %opt ) {
-    my $s = sprintf("[I]    %-10s %s\n",$k,$opt{$k});
+    my $s = sprintf("[I]    %-12s %s\n",$k,$opt{$k});
     INFO $s;
 }
+INFO "[I] ";
+
+my $s = sprintf("[I] %-15s %s\n",'OS courant',$^O);
+INFO $s;
 INFO "[I] ";
 
 INFO "[I] Est-ce que Clearcase est installe ?";
@@ -198,7 +204,15 @@ if ( !defined $ct ) {
     INFO "[I] Cleartool est $ct";
 }
 
+INFO "[I] Est-ce que la stream est valide ?";
 my $stream   = Migrations::Clearcase::check_stream($opt{stream});
+if ( defined $stream ) {
+    INFO '[I]   La stream ' . $opt{stream} . ' est définie.';
+} else {
+    WARN '[W] La stream fournie ('. $opt{stream} . ') est incorrecte.';
+}
+
+
 #my $baseline = Migrations::Clearcase::check_baseline($opt{stream},$opt{baseline});
 
 exit 0;

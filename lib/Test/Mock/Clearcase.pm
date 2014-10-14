@@ -188,12 +188,230 @@ SWITCH_DESC : {
 #------------------------------------------------
 
 #------------------------------------------------
+sub ct_lsstream
+{
+    my @parms = @_;
+
+    my $e = 0;
+    my $s = '';
+
+SWITCH_LSSTREAM: {
+
+    # a valid case
+    if ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/PVOB_MA" ) {
+        $s = 'component:Donnees_Client@/vobs/PVOB_CHOPIN
+component:socle-maven-particulier@/vobs/PVOB_CHOPIN
+component:Equipement@/vobs/PVOB_CHOPIN
+component:rdv-relance-client-part-ejb@/vobs/PVOB_MA
+component:ficp-war@/vobs/PVOB_CHOPIN
+component:OME_TransfertPEA@/vobs/PVOB_CHOPIN
+component:Tableau_de_Bord@/vobs/PVOB_CHOPIN
+component:ficp-ejb@/vobs/PVOB_CHOPIN
+component:Mandataires@/vobs/PVOB_CHOPIN
+component:assurance-mrh@/vobs/PVOB_MA
+component:GDC_Credits@/vobs/PVOB_CHOPIN
+component:Mifid@/vobs/PVOB_CHOPIN
+component:Epargne@/vobs/PVOB_CHOPIN
+component:GDC_ExtensionTransfo@/vobs/PVOB_CHOPIN
+component:GDC_Cloture@/vobs/PVOB_CHOPIN
+component:GDC_Compte_Courant@/vobs/PVOB_CHOPIN
+component:dossier-client@/vobs/PVOB_CHOPIN
+component:Composant_Mifid@/vobs/PVOB_CHOPIN
+component:GDC_Credits_CT@/vobs/PVOB_CHOPIN
+component:par-communs@/vobs/PVOB_CHOPIN
+component:GDC_Epargne_CERS@/vobs/PVOB_CHOPIN
+component:bad@/vobs/PVOB_MA
+component:Assurance_IARD@/vobs/PVOB_CHOPIN
+component:GDC_Package@/vobs/PVOB_CHOPIN
+component:Epargne_Logement@/vobs/PVOB_CHOPIN
+component:GDC_Titres@/vobs/PVOB_CHOPIN
+component:tracabilite-assurance@/vobs/PVOB_CHOPIN
+component:Cartes_Bancaires@/vobs/PVOB_CHOPIN
+component:bel@/vobs/PVOB_CHOPIN
+component:GDC_Services_en_Lignes_1@/vobs/PVOB_CHOPIN
+component:Services_en_Lignes_2@/vobs/PVOB_CHOPIN
+component:GDC_Client@/vobs/PVOB_CHOPIN
+component:Patrimoine@/vobs/PVOB_CHOPIN
+component:GDC_Contrat@/vobs/PVOB_CHOPIN
+component:integration-maven-particulier@/vobs/PVOB_CHOPIN
+component:bilan-epargne@/vobs/PVOB_MA
+component:Composant_Mandataires@/vobs/PVOB_CHOPIN
+component:GDC_Prospect@/vobs/PVOB_CHOPIN';
+        last;
+    }
+
+    # a valid case
+    if ( join(' ',@parms) eq "-fmt '%[components]Np' stream:PARTICULIER_Mainline@/vobs/PVOB_MA" ) {
+        $s = 'Donnees_Client
+socle-maven-particulier
+Equipement
+rdv-relance-client-part-ejb
+ficp-war
+OME_TransfertPEA
+Tableau_de_Bord
+ficp-ejb
+Mandataires
+assurance-mrh
+GDC_Credits
+Mifid
+Epargne
+GDC_ExtensionTransfo
+GDC_Cloture
+GDC_Compte_Courant
+dossier-client
+Composant_Mifid
+GDC_Credits_CT
+par-communs
+GDC_Epargne_CERS
+bad
+Assurance_IARD
+GDC_Package
+Epargne_Logement
+GDC_Titres
+tracabilite-assurance
+Cartes_Bancaires
+bel
+GDC_Services_en_Lignes_1
+Services_en_Lignes_2
+GDC_Client
+Patrimoine
+GDC_Contrat
+integration-maven-particulier
+bilan-epargne
+Composant_Mandataires
+GDC_Prospect';
+        last;
+    }
+
+    # a VOB, not a PVOB
+    if ( ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/MA1" ) or
+         ( join(' ',@parms) eq "-fmt '%[components]Np' stream:PARTICULIER_Mainline@/vobs/MA1"  ) ) {
+        $s = 'cleartool: Error: stream not found: "PARTICULIER_Mainline".
+';
+        $e = 1;
+        last;
+    }
+
+    # not a VOB
+    if ( ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/VOB_MA" ) or
+         ( join(' ',@parms) eq "-fmt '%[components]Np' stream:PARTICULIER_Mainline@/vobs/VOB_MA"  ) ) {
+        $s = 'cleartool: Error: Unable to determine VOB for pathname "/vobs/VOB_MA".
+';
+        $e = 1;
+        last;
+    }
+
+    # no PVOB, no view
+    if ( ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainline" ) or
+         ( join(' ',@parms) eq "-fmt '%[components]Np' stream:PARTICULIER_Mainline" ) ) {
+        $s = 'cleartool: Error: Unable to determine VOB for pathname ".".
+';
+        $e = 1;
+        last;
+    }
+
+    # not a stream
+    if ( ( join(' ',@parms) eq "-fmt '%[components]NXp' stream:PARTICULIER_Mainl@/vobs/PVOB_MA" ) or
+         ( join(' ',@parms) eq "-fmt '%[components]Np' stream:PARTICULIER_Mainl@/vobs/PVOB_MA" ) ) {
+        $s = 'cleartool: Error: stream not found: "PARTICULIER_Mainl".
+';
+        $e = 1;
+        last;
+    }
+
+    }; # SWITCH_LSSTREAM
+
+    return wantarray ? ($e, split (/\n/, $s)) : $s;
+}
+# end of ct_lsstream()
+#------------------------------------------------
+
+
+#------------------------------------------------
+sub ct_lsbl
+{
+    my @parms = @_;
+
+    my $e = 0;
+    my $s = '';
+
+    return undef if ( $parms[0] ne '-s' );
+
+SWITCH_LSBL: {
+
+    # a valid case
+    my @valid_baselines = qw (
+1.18.8.0-SNAPSHOT_Donnees_Client@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_socle-maven-particulier@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Equipement@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_OME_TransfertPEA@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Tableau_de_Bord@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Mandataires@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Credits@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Mifid@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Epargne@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_ExtensionTransfo@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Cloture@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Compte_Courant@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_dossier-client@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Composant_Mifid@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Credits_CT@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_par-communs@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Epargne_CERS@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Assurance_IARD@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Package@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Epargne_Logement@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Titres@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Cartes_Bancaires@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_bel@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Services_en_Lignes_1@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Services_en_Lignes_2@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Client@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Patrimoine@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Contrat@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_integration-maven-particulier@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_Composant_Mandataires@/vobs/PVOB_MA
+1.18.8.0-SNAPSHOT_GDC_Prospect@/vobs/PVOB_MA
+);
+
+    for my $i ( @valid_baselines ) {
+        if ( $parms[1] eq $i ) {
+            $s = $i;
+            $s =~ s/\@.*//;
+            $s .= '
+';
+        last SWITCH_LSBL;
+        }
+    }
+
+    # not a valid baseline
+    $s = 'cleartool: Error: Unable to find baseline "'.$parms[1].'".
+cleartool: Error: Unable to list baseline.
+';
+        $e = 1;
+        last;
+
+    }; # SWITCH_LSBL
+
+    return wantarray ? ($e, split (/\n/, $s)) : $s;
+}
+# end of ct_lsbl()
+#------------------------------------------------
+
+
+#------------------------------------------------
 sub ct_XXX
 {
     my @parms = @_;
 
     my $e = 0;
     my $s = '';
+
+SWITCH_XXX: {
+      # a valid case
+
+     1;
+    };  # SWITCH_XXX
 
     return wantarray ? ($e, split (/\n/, $s)) : $s;
 }
@@ -231,6 +449,8 @@ sub new {
 # -ver
 # hostinfo
 # desc
+# lsstream with specific parms
+# lsbl -s 
 #------------------------------------------------
 sub mocked_cleartool
 {
@@ -248,6 +468,8 @@ sub mocked_cleartool
     return ct_ver()            if ( $cmd eq '-ver'  );
     return ct_hostinfo(@parms) if ( $cmd eq 'hostinfo' );
     return ct_desc(@parms)     if ( $cmd eq 'desc'  );
+    return ct_lsstream(@parms) if ( $cmd eq 'lsstream'  );
+    return ct_lsbl(@parms)     if ( $cmd eq 'lsbl'  );
 
     return undef;
 }
