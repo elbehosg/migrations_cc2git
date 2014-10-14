@@ -6,7 +6,10 @@ bin/migration_cc2git.pl
 lib/Migrations/Clearcase.pm
 lib/Migrations/Git.pm
 t/lib/Test/Mock/Clearcase.pm
+t/lib/Test/Environment/Git.pm
 t/01-t_Migrations.t
 t/02-t_Parameters.t
 t/03-t_Clearcase.t
+t/04-t_Clearcase_mocked.t
+t/05-t_Git.t
 
