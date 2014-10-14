@@ -63,7 +63,7 @@ my %expected_args = (
         },
     step => {
         optional => 1,
-        getopt => 'steps=@',
+        getopt => 'step=s@',
         default => 'all',
         },
     reset => {
@@ -90,8 +90,7 @@ my %expected_args = (
 # end of %expected_args
 
 my %opt;
-my @valid_args = Migrations::Parameters::build_list_for_getopt(\%expected_args);
-
+my @valid_args = Migrations::Parameters::list_for_getopt(\%expected_args);
 
 GetOptions(\%opt, @valid_args, "help|usage|?", "man" ) || pod2usage(2);
 
@@ -101,6 +100,29 @@ pod2usage(-exitval => 0, -verbose => 2)  if ($opt{man});
 use Data::Dumper;
 say Data::Dumper->Dump([\%opt,\@ARGV], [qw(opt ARGV)]);
 
+#   
+# --input ?
+#   
+if ( exists $opt{input} ) { 
+    # GetOpt ensures $opt{input} has a value
+    open my $fh, '<', $opt{input} or die '[F] Cannot read ' . $opt{input} . " (from --input): $!. Abort.\n";
+    my $argv = ''; 
+    while ( <$fh> ) { 
+        # ignore comments and empty lines
+        s/#.+//; s/^\s+//; s/\s+$//;
+        next unless length ; 
+        $argv .= ' ' . $_; 
+    }   
+    close $fh;
+    my %input ;
+    my ($ret, $args) = GetOptionsFromString($argv, \%input, @valid_args );
+    # TODO: que faire de $ret (code retour) et $args (arguments hors @$...)
+
+    # Priorities for args is default value < --input file < command line :
+    while ( my ($k, $v ) = each %input ) {
+        $opt{$k} = $v unless ( exists $opt{$k} );
+    }
+} # end --input
 
 my $ret = Migrations::Parameters::validate_arguments(\%opt, \%expected_args);
 
