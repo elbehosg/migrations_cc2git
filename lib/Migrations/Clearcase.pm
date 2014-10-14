@@ -66,17 +66,19 @@ sub where_is_cleartool
 # cleartool
 #
 # Execute the command cleartool with the given arguments
+# ASSUME THE ARGUMENTS HAVE BEEN SANITIZED
 #
 # WARNINGS:
 #    1. arguments have been sanitized
 #    2. not suitable for interactive commands
 #
+# RETURN with or without argument;
+#    undef is cleartool command cannot be found
 # RETURN without argument:
 #    SCALAR: ''
 #    ARRAY : ()
 # RETURN with arguments:
 #    SCALAR context:
-#    undef if cleartool cannot be found
 #    what the command returned on STDOUT+STDERR
 #
 #    ARRAY context:
@@ -248,6 +250,29 @@ sub check_stream
 
 
 #------------------------------------------------
+# check_baseline()
+#
+# Check if the baseline is valid (exists in Clearcase)
+#
+# RETURN
+#     undef if cleartool cannot be found or no arg is provided
+#     0 if the baseline exists
+#     1 if not  (ie cleartool lsbl -s xxx  does not know xxx)
+# 
+#------------------------------------------------
+sub check_baseline
+{
+    my $baseline = shift;
+
+    return undef unless ( defined $baseline );
+
+    my ($e) = cleartool('lsbl -s ', $baseline);
+    return $e;
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
 # compose_baseline()
 #
 # Compose the baseline using a X.Y.Z-SNAPSHOT notation
@@ -275,7 +300,6 @@ sub compose_baseline
     my $baseline = shift;
 
     return undef unless ( defined $stream and defined $baseline );
-#warn("[D] stream = $stream \t baseline = $baseline\n");
     return undef unless ( defined check_stream($stream) );
 
     my $pvob = $stream;
@@ -291,14 +315,13 @@ sub compose_baseline
 
     my @bls = ();
     for my $c ( @comps ) {
-#warn("[D]     component $c\n");
+        chomp $c;
         $c =~ s/^component://;
         my $cc = $baseline .'_' . $c . '@' . $pvob ;
         #my $cc = $baseline .'_' . $c;
         my ($e, $bl) = cleartool('lsbl -s ', $cc);
         if ( !defined $e or $e ) {
-            WARN "[W] No baseline '$baseline' for component '$c'.";
-#warn ('BURP');
+            WARN "[W] No baseline '$baseline' for component '$c' ($cc).";
         } else {
             push @bls, $cc;
         }
@@ -308,6 +331,114 @@ sub compose_baseline
     return wantarray ? @bls : ( join ',',@bls);
 }
 # end of compose_baseline()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# make_stream()
+#
+# Create a read-only stream has child of the 
+# given stream on the given set of baselines
+# The name of the new stream is build by replacing
+# the known extension by '_for_export_Dev'
+#
+# IN:
+#    $parent: the name of the existing parent
+#        stream (stream:xxx@pvob OR xxx@pvob)
+#
+#    $baseline: a coma separated list of baselines
+#        for the foundation baseline of the new stream
+#
+# RETURN:
+#    undef if the stream has not been created
+#    the name of the new stream if it succeeds
+#    In array context, undef is followed by the
+#    cleartool error messages.
+#
+#------------------------------------------------
+sub make_stream
+{
+    my $parent   = shift;
+    my $baseline = shift;
+    my $suffix   = shift // '_for_export_Dev';
+
+    return undef unless ( defined $parent and defined $baseline );
+    return undef unless ( defined check_stream($parent) );
+
+    my $pvob = $parent;
+    substr($pvob, 0, index($pvob,'@',0)+1) = '';
+    # force $parent to be : stream:xxxx@PVOB
+    $parent =~ s/^stream://;
+    $parent = "stream:$parent";
+
+    my $new = $parent;
+    $new    =~ s/_(?:ass|dev|mainline|int)?$//i;
+    $new   .= $suffix;
+    return undef if ( defined check_stream($new) );
+
+    my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
+    if (defined $e and $e == 0 ) {
+        # success
+        return $new;
+    } elsif ( defined $e and $e ) {
+        # cleartool mkstream complained
+        return wantarray ? (undef, @r) : undef;
+    } else {
+        # other error
+        return undef;
+    }
+}
+# end of make_stream()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# make_view()
+#
+# Create a view on the given stgloc
+# If a stream is given, create the view on that steam
+#
+# IN:
+#    $tag: the name of the view
+#    $stgloc: the name of the storage loc
+#    $stream: the name of the stream (or undef)
+#
+# RETURN:
+#    undef if the view has not been created
+#    the tag of the new view if it succeeds
+#    In array context, undef is followed by the
+#    cleartool error messages.
+#
+#------------------------------------------------
+sub make_view
+{
+    my $tag    =  shift;
+    my $stgloc = shift // 'viewstgloc';
+    my $stream = shift;
+
+    return undef unless ( defined $tag and defined $stgloc );
+
+    if ( defined $stream ) {
+        return undef unless ( defined check_stream($stream) );
+
+        # force $stream to be : stream:xxxx@PVOB
+        $stream =~ s/^stream://;
+        $stream = "stream:$stream";
+    }
+
+    my ($e,@r) = cleartool('mkview -tag ', $tag, (defined $stream ? '-stream '.$stream.' ' : '' ), ' -stgloc ', $stgloc);
+    if (defined $e and $e == 0 ) {
+        # success
+        return $tag;
+    } elsif ( defined $e and $e ) {
+        # cleartool mkstream complained
+        return wantarray ? (undef, @r) : undef;
+    } else {
+        # other error
+        return undef;
+    }
+}
+# end of make_view()
 #------------------------------------------------
 
 

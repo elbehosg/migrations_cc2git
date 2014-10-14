@@ -7,6 +7,7 @@ use v5.18;
 use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage qw(pod2usage);
 use Log::Log4perl qw(:easy);
+use Data::Dumper;
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
@@ -182,12 +183,19 @@ if ( -e $opt{logfile} ) {
     init_logs($opt{logfile});
 }
 
+if ( exists $opt{bls} ) {
+    my @bls = map { split(/,/, $_) } @{$opt{bls}};
+    $opt{bls} = \@bls;
+}
 
 INFO "[I] Demarrage de la migration Clearcase --> Git";
 INFO "[I] ";
 INFO "[I] Parametres d'appel :";
 for my $k ( sort keys %opt ) {
-    my $s = sprintf("[I]    %-12s %s\n",$k,$opt{$k});
+    my $d = Data::Dumper->new([$opt{$k}], [$k]);
+    $d->Indent(0);
+    $d->Terse(1);
+    my $s = sprintf("[I]    %-12s %s\n",$k,$d->Dump);
     INFO $s;
 }
 INFO "[I] ";
@@ -207,13 +215,51 @@ if ( !defined $ct ) {
 INFO "[I] Est-ce que la stream est valide ?";
 my $stream   = Migrations::Clearcase::check_stream($opt{stream});
 if ( defined $stream ) {
-    INFO '[I]   La stream ' . $opt{stream} . ' est définie.';
+    INFO '[I] La stream ' . $opt{stream} . ' est définie.';
 } else {
     WARN '[W] La stream fournie ('. $opt{stream} . ') est incorrecte.';
 }
+INFO "[I] ";
 
 
-#my $baseline = Migrations::Clearcase::check_baseline($opt{stream},$opt{baseline});
+INFO "[I] Est-ce que la baseline est valide ?";
+if ( exists $opt{bls} and exists $opt{baseline} ) {
+    LOGDIE('bls et baseline en meme temps. Ca pue trop. J\'arrete tout.');
+}
+my @baselines = ();
+if ( exists $opt{baseline} ) {
+    @baselines = Migrations::Clearcase::compose_baseline($opt{stream},$opt{baseline});
+    if ( !defined $baselines[0] ) {
+        LOGDIE "[F] La baseline fournie ($opt{baseline}) ne convient pas. Abort.";
+    }
+} else {
+    @baselines = grep { Migrations::Clearcase::check_baseline($_) == 0 } @{$opt{bls}};
+}
+
+INFO "[I] Baseline recomposée :";
+INFO "[I]   $_" for ( @baselines );
+
+INFO "[I] ";
+
+INFO "[I] Création du stream d'export";
+# on cree le stream (-ro)
+# on cree la vue sur le stream
+# on extrait le contenu de la vue
+
+# on teste l'etat de git
+# on se met dans le bon context git
+# on rince le répertoire
+# on copie recursivement depuis la vue vers le context git
+# on git add / git commit / git push
+
+# on implemente les differents steps :-)
+
+
+
+
+
+
+INFO "[I] That's all folks!";
 
 exit 0;
 

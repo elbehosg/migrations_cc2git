@@ -400,6 +400,46 @@ cleartool: Error: Unable to list baseline.
 
 
 #------------------------------------------------
+sub ct_mkstream
+{
+    my @parms = @_;
+
+    my $e = 0;
+    my $s = '';
+
+SWITCH_mkstream: {
+      # a valid case
+
+     1;
+    };  # SWITCH_mkstream
+
+    return wantarray ? ($e, split (/\n/, $s)) : $s;
+}
+# end of ct_mkstream()
+#------------------------------------------------
+
+
+#------------------------------------------------
+sub ct_mkview
+{
+    my @parms = @_;
+
+    my $e = 0;
+    my $s = '';
+
+SWITCH_mkview: {
+      # a valid case
+
+     1;
+    };  # SWITCH_mkview
+
+    return wantarray ? ($e, split (/\n/, $s)) : $s;
+}
+# end of ct_mkview()
+#------------------------------------------------
+
+
+#------------------------------------------------
 sub ct_XXX
 {
     my @parms = @_;
@@ -465,11 +505,13 @@ sub mocked_cleartool
     }
 
     return ct_bad_cmd()        if ( $cmd eq 'not_a_ct_command' );
-    return ct_ver()            if ( $cmd eq '-ver'  );
+    return ct_ver()            if ( $cmd eq '-ver'     );
     return ct_hostinfo(@parms) if ( $cmd eq 'hostinfo' );
-    return ct_desc(@parms)     if ( $cmd eq 'desc'  );
-    return ct_lsstream(@parms) if ( $cmd eq 'lsstream'  );
-    return ct_lsbl(@parms)     if ( $cmd eq 'lsbl'  );
+    return ct_desc(@parms)     if ( $cmd eq 'desc'     );
+    return ct_lsstream(@parms) if ( $cmd eq 'lsstream' );
+    return ct_lsbl(@parms)     if ( $cmd eq 'lsbl'     );
+    return ct_mkstream(@parms) if ( $cmd eq 'mkstream' );
+    return ct_mkview(@parms)   if ( $cmd eq 'mkview'   );
 
     return undef;
 }
