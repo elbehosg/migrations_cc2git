@@ -62,6 +62,60 @@ sub list_for_getopt
 
 
 #------------------------------------------------
+# validate_expected_args()
+#
+# Check that the definitions of the arguments
+# is consistent (default values on mandatory
+# args are useless, 2 mandatory args cannot
+# 'exclude' each other...)
+#
+# IN:
+#    $hash : HASH ref describing the valid arguments
+#
+# RETURN:
+#    0   if everything's fine
+#    or the sum of the following:
+#    1   mandatory argument missing
+#    2   conflicting arguments
+#
+# DIE:
+#    in case of (too) bad argument
+#
+# FORMAT of %$hash
+#   $hash->{arg1 => { ... },
+#           ...,
+#          }
+# with ... in:
+#     getopt => string    description of the arg for Getopt::Long::GetOptions
+#                         (alternate names go there)
+#     mandatory => 1      if the arg is mandatory
+#     optional  => 1      if the arg is optional
+#     default => something   default value for the args
+#     mandatory_unless => [ argA, argB ] if one of the arg1, argA, argB are mandatory
+#     exclude => [ argA, argB. ] if presence of arg1 forbids presence of argA or argB
+#
+#------------------------------------------------
+sub validate_expected_args
+{
+    my $hash = shift;
+
+    die "[F] Parameter 'hash' in " . __PACKAGE__ . "::validate_expected_args() is required. Abort.\n" unless (defined $hash );
+    die "[F] 'hash' in " . __PACKAGE__ . "::validate_expected_args() must be an HASH ref. Abort.\n"   unless (ref($hash) eq 'HASH');
+
+    my $err = 0;
+
+    # TODO  (don't forget to write the tests as well in t/02_Parameters.t)
+    # - default and mandatory for the same argument
+    # - mandatory and exclude (but mandatory_unless and exclude are OK)
+    # - illegal getopt format
+
+    return $err;
+}
+# end of validate_expected_args()
+#------------------------------------------------
+
+
+#------------------------------------------------
 # validate_arguments()
 #
 # Analyze the args from the command line:
@@ -113,7 +167,7 @@ sub validate_arguments
         }
     }
     if ( scalar @missing ) {
-        warn "[W] Missing mandatory arguments: " . ( join ',', @missing) . "\n";
+        warn "[W] Missing mandatory arguments: " . ( join ',', sort @missing) . "\n";
         $err += 1;
     }
 

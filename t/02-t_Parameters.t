@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use Test::More;# tests => 10;
 
+use Data::Dumper;
+
 BEGIN {
         use_ok('Migrations::Parameters');
 }
@@ -133,11 +135,48 @@ my_test_report('M::P::validate_arguments all fine 6.', $r, \%opt, ( 0, 'foo', 42
 $r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
 my_test_report('M::P::validate_arguments all fine 7.', $r, \%opt, ( 0, 'foo', 42, 1, 1, 1, 0, 1, 0 ) );
 
+%opt = ( a2 => 42, a3 => 1, a4 => 1, );
+$r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
+my_test_report('M::P::validate_arguments missing mandatory args 1.', $r, \%opt, ( 1, undef, 42, 1, 1, undef, 0, undef, 1 ) );
+
 %opt = ( a1 => 'foo', a2 => 42, a3 => 1, );
 $r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
-my_test_report('M::P::validate_arguments missing mandatory args 1.', $r, \%opt, ( 1, 'foo', 42, 1, undef, undef, 0, undef, 1 ) );
+my_test_report('M::P::validate_arguments missing mandatory args 2.', $r, \%opt, ( 1, 'foo', 42, 1, undef, undef, 0, undef, 1 ) );
 
+%opt = ( a3 => 1, a6 => 1);
+$r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
+my_test_report('M::P::validate_arguments missing mandatory args 3.', $r, \%opt, ( 1, undef, undef, 1, undef, undef, 1, undef, 1 ) );
 
+%opt = ( a1 => 'foo', a2 => 42, a3 => 1, a4 => 1, a6 => 1, a7 => 1, );
+$r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
+my_test_report('M::P::validate_arguments exclusive args 1.', $r, \%opt, ( 2, 'foo', 42, 1, 1, undef, 1, 1, 1 ) );
+
+%opt = ( a1 => 'foo', a2 => 42, a3 => 1, a4 => 1, a6 => 1, a8 => 1, );
+$r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
+my_test_report('M::P::validate_arguments exclusive args 2.', $r, \%opt, ( 2, 'foo', 42, 1, 1, undef, 1, undef, 1 ) );
+
+%opt = ( a1 => 'foo', a2 => 42, a3 => 1, a4 => 1, a6 => 1, a8 => 0, );
+$r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
+my_test_report('M::P::validate_arguments exclusive args 3.', $r, \%opt, ( 2, 'foo', 42, 1, 1, undef, 1, undef, 0 ) );
+
+%opt = ( a2 => 42, a3 => 1, a4 => 1, a6 => 1, a8 => 0, );
+$r = Migrations::Parameters::validate_arguments(\%opt,\%expected);
+my_test_report('M::P::validate_arguments missing mandatory AND exclusive args 1.', $r, \%opt, ( 3, undef, 42, 1, 1, undef, 1, undef, 0 ) );
+
+eval {
+  my $a;
+  $r = Migrations::Parameters::validate_expected_args($a);
+};
+# expect failure
+ok($@, 'Call Migrations::Parameters::validate_arguments() badly typed parms');
+
+eval {
+  my %a;
+  $r = Migrations::Parameters::validate_expected_args(\%a);
+};
+# expect success
+ok(!$@,   'Call Migrations::Parameters::validate_arguments() correctly typed parms');
+ok($r==0, 'Call Migrations::Parameters::validate_arguments() no error in definition');
 
 
 print "\n";
