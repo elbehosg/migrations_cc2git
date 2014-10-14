@@ -14,6 +14,7 @@ use Migrations::Parameters;
 use Migrations::Clearcase;
 use Migrations::Git;
 
+our $VERSION = '1.0.0';
 
 my %opt;
 my @valid_args = (

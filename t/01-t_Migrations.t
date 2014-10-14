@@ -5,6 +5,7 @@ use warnings;
 use Test::More ; #tests => 5;
 
 BEGIN {
+        use_ok("Migrations::Parameters");
         use_ok("Migrations::Clearcase");
         use_ok("Migrations::Git");
 }
