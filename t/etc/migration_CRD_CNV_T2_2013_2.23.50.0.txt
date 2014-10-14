@@ -1,0 +1,4 @@
+--stream CRD_CNV_T2_2013_Ass@/vobs/PVOB_MA
+--baseline 2.23.50.0-SNAPSHOT
+--branch import/CRD_CNV_T2_2013
+--rep /home/x120248/git/CREDIT_CNV

@@ -1,0 +1,4 @@
+--stream IM_2014_1_A_Ass@/vobs/PVOB_CHOPIN
+--baseline 6.107.1.0-SNAPSHOT
+--branch import/IM_2014_1_A_Ass
+--rep /Clearcase/tests/LBO/wsgit/IM

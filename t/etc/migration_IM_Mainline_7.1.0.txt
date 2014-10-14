@@ -1,0 +1,4 @@
+--stream IM_Mainline@/vobs/PVOB_CHOPIN
+--baseline 7.1.0-SNAPSHOT
+--branch import/IM_Mainline
+--rep /Clearcase/tests/LBO/wsgit/IM
