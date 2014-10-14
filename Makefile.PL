@@ -11,9 +11,15 @@ WriteMakefile(
     PL_FILES       => {},
     BUILD_REQUIRES => {
         'Test::More'          => 0.98,
+        'Test::Mock::Simple' => '0.04',
     },
     PREREQ_PM  => {
         #'Moo' => 1.000008,
+        'Log::Log4perl' => 1.44,
+        'File::Spec' => 3.40,
+        'Getopt::Long' => 2.39,
+        'Pod::Usage' => 1.61,
+        'List::MoreUtils' => 0.33,
     },
     MIN_PERL_VERSION => 5.010000,
     META_MERGE => {

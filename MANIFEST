@@ -5,6 +5,8 @@ README
 bin/migration_cc2git.pl
 lib/Migrations/Clearcase.pm
 lib/Migrations/Git.pm
+lib/Test/Mock/Clearcase.pm
 t/01-t_Migrations.t
-
+t/02-t_Parameters.t
+t/03-t_Clearcase.t
 

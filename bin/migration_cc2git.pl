@@ -191,7 +191,15 @@ for my $k ( sort keys %opt ) {
 INFO "[I] ";
 
 INFO "[I] Est-ce que Clearcase est installe ?";
+my $ct = Migrations::Clearcase::where_is_cleartool();
+if ( !defined $ct ) {
+    WARN "[W] Clearcase n'est pas disponible.";
+} else {
+    INFO "[I] Cleartool est $ct";
+}
 
+my $stream   = Migrations::Clearcase::check_stream($opt{stream});
+#my $baseline = Migrations::Clearcase::check_baseline($opt{stream},$opt{baseline});
 
 exit 0;
 
