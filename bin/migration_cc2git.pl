@@ -81,6 +81,126 @@ sub undo_all
 my @undo = ();
 
 
+#------------------------------------------------
+# check_clearcase_status
+#------------------------------------------------
+sub check_clearcase_status
+{
+    my $opt = shift;
+    my $data = shift;
+
+INFO "[I] Est-ce que Clearcase est installe ?";
+my $ct = Migrations::Clearcase::where_is_cleartool();
+if ( !defined $ct ) {
+    WARN "[W] Clearcase n'est pas disponible.";
+} else {
+    INFO "[I] Cleartool est $ct";
+}
+
+INFO "[I] Est-ce que la stream est valide ?";
+my $stream   = Migrations::Clearcase::check_stream($opt{stream});
+if ( defined $stream ) {
+    INFO '[I] La stream ' . $opt{stream} . ' est définie.';
+} else {
+    WARN '[W] La stream fournie ('. $opt{stream} . ') est incorrecte.';
+}
+INFO "[I] ";
+INFO "[I] Recupération des composants Clearcase :";
+my @components = Migrations::Clearcase::get_components($opt{stream});
+if ( ! defined $components[0] ) {
+    LOGDIE('[F] Impossible de récupérer la liste des composants de ' . $opt{stream} . '. Fatal.');
+}
+my @components_rootdir = Migrations::Clearcase::get_components_rootdir(@components);
+if ( ! defined $components_rootdir[0] ) {
+    LOGDIE('[F] Impossible de récupérer les rootdir des composants de ' . $opt{stream} . '. Fatal.');
+}
+
+
+INFO "[I] ";
+
+INFO "[I] Est-ce que la baseline est valide ?";
+if ( exists $opt{bls} and exists $opt{baseline} ) {
+    LOGDIE('bls et baseline en meme temps. Ca pue trop. J\'arrete tout.');
+}
+my @baselines = ();
+if ( exists $opt{baseline} ) {
+    @baselines = Migrations::Clearcase::compose_baseline($opt{stream},$opt{baseline});
+    if ( !defined $baselines[0] ) {
+        LOGDIE "[F] La baseline fournie ($opt{baseline}) ne convient pas. Abort.";
+    }
+} else {
+    @baselines = grep { Migrations::Clearcase::check_baseline($_) == 0 } @{$opt{bls}};
+}
+
+INFO "[I] Baseline recomposée :";
+INFO "[I]   $_" for ( @baselines );
+
+INFO "[I] ";
+
+}
+# end of check_clearcase_status()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# check_git_status
+#------------------------------------------------
+sub check_git_status
+{
+}
+# end of check_git_status()
+#------------------------------------------------
+
+#
+#------------------------------------------------
+# prepare_clearcase
+#------------------------------------------------
+sub prepare_clearcase
+{
+}
+# end of prepare_clearcase()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# prepare_git
+#------------------------------------------------
+sub prepare_git
+{
+}
+# end of prepare_git()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# transfer_data
+#------------------------------------------------
+sub transfer_data
+{
+}
+# end of transfer_data()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# finalize_git
+#------------------------------------------------
+sub finalize_git
+{
+}
+# end of finalize_git()
+#------------------------------------------------
+
+
+#------------------------------------------------
+# cleanup
+#------------------------------------------------
+sub cleanup
+{
+}
+# end of cleanup()
+#------------------------------------------------
+
 
 #
 # subkeys for an argument :
@@ -117,6 +237,11 @@ my %expected_args = (
         mandatory_unless => [ 'baseline' ],
         exclude => [ 'baseline' ],
         getopt => 'bls=s@',
+        },
+    tag => {
+        mandatory_unless => [ 'baseline' ],
+        exclude => [ 'baseline' ],
+        getopt => 'tag=s',
         },
     interactive => {
         optional => 1,
@@ -218,71 +343,25 @@ if ( exists $opt{bls} ) {
 
 INFO "[I] Demarrage de la migration Clearcase --> Git";
 INFO "[I] ";
-INFO "[I] Parametres d'appel :";
+my $parms = '[I] Parametres d\'appel :
+';
 for my $k ( sort keys %opt ) {
     my $d = Data::Dumper->new([$opt{$k}], [$k]);
     $d->Indent(0);
     $d->Terse(1);
     my $s = sprintf("[I]    %-12s %s\n",$k,$d->Dump);
-    INFO $s;
+    $parms .= $s;
 }
-INFO "[I] ";
+$parms .= "[I]\n";
 
 my $s = sprintf("[I] %-15s %s\n",'OS courant',$^O);
-INFO $s;
-INFO "[I] ";
+$parms .= $s . "[I]\n";
+
+INFO $parms;
 
 #
 # VERIFICATIONS CLEARCASE, GIT
 #
-
-INFO "[I] Est-ce que Clearcase est installe ?";
-my $ct = Migrations::Clearcase::where_is_cleartool();
-if ( !defined $ct ) {
-    WARN "[W] Clearcase n'est pas disponible.";
-} else {
-    INFO "[I] Cleartool est $ct";
-}
-
-INFO "[I] Est-ce que la stream est valide ?";
-my $stream   = Migrations::Clearcase::check_stream($opt{stream});
-if ( defined $stream ) {
-    INFO '[I] La stream ' . $opt{stream} . ' est définie.';
-} else {
-    WARN '[W] La stream fournie ('. $opt{stream} . ') est incorrecte.';
-}
-INFO "[I] ";
-INFO "[I] Recupération des composants Clearcase :";
-my @components = Migrations::Clearcase::get_components($opt{stream});
-if ( ! defined $components[0] ) {
-    LOGDIE('[F] Impossible de récupérer la liste des composants de ' . $opt{stream} . '. Fatal.');
-}
-my @components_rootdir = Migrations::Clearcase::get_components_rootdir(@components);
-if ( ! defined $components_rootdir[0] ) {
-    LOGDIE('[F] Impossible de récupérer les rootdir des composants de ' . $opt{stream} . '. Fatal.');
-}
-
-
-INFO "[I] ";
-
-INFO "[I] Est-ce que la baseline est valide ?";
-if ( exists $opt{bls} and exists $opt{baseline} ) {
-    LOGDIE('bls et baseline en meme temps. Ca pue trop. J\'arrete tout.');
-}
-my @baselines = ();
-if ( exists $opt{baseline} ) {
-    @baselines = Migrations::Clearcase::compose_baseline($opt{stream},$opt{baseline});
-    if ( !defined $baselines[0] ) {
-        LOGDIE "[F] La baseline fournie ($opt{baseline}) ne convient pas. Abort.";
-    }
-} else {
-    @baselines = grep { Migrations::Clearcase::check_baseline($_) == 0 } @{$opt{bls}};
-}
-
-INFO "[I] Baseline recomposée :";
-INFO "[I]   $_" for ( @baselines );
-
-INFO "[I] ";
 
 
 # on teste l'etat de git
@@ -307,6 +386,13 @@ if ( ! Migrations::Git::check_branch($opt{repo}, $opt{branch}) ) {
     LOGDIE "[F] Le depot local $opt{repo} ne comporte pas de branche $opt{branch}. Abort.\n";
 }
 INFO "[I] La branche $opt{branch} existe dans le depot $opt{repo}.";
+
+my $tag = ( exists $opt{baseline} ) ? $opt{baseline} : $opt{tag};
+INFO "[I] Est-ce que le tag d'import existe ?";
+if ( Migrations::Git::check_branch($opt{repo}, $tag) ) {
+    LOGDIE "[F] Le depot local $opt{repo} comporte deja un tag $tag. Abort.\n";
+}
+INFO "[I] Le tag $tag n'existe pas dans le depot $opt{repo}.";
 
 
 
@@ -363,60 +449,49 @@ if ( -f 'matching_clearcase_git.txt' ) {
 # MIGRATION PROPREMENT DITE
 #
 
-my $fh = File::Temp->new(UNLINK => 0, TEMPLATE => 'migrate_XXXXXX', SUFFIX => '.pl', TMPDIR => 1);
-print $fh "#!$^X
-
-use Log::Log4perl qw(:easy);
-use lib \"" . $FindBin::Bin . "/../lib\";
-
-
-";
-open my $pm, '<', $INC{'Migrations/Migrate.pm'} or die "Cannot open " . $INC{'Migrations/Migrate.pm'} . " : $!";
-{
-   local $/ = undef;
-   my $str = <$pm>;
-   print $fh $str;
-   close $pm;
-}
-
-print $fh '
-
-Migrations::Migrate::init_logs(">>'. $opt{logfile} . '");
-my $r = Migrations::Migrate::migrate_UCM("'. $opt{repo}.'",';
-print $fh join (',', map { "'".$_."'" } @components_rootdir);
-print $fh ');
-
-if ( $r == 0 ) {
-    INFO "[I] Migration succeeded.";
-} elsif ( $r == 1 ) {
-    WARN "[W] Migration succeeded with warnings.";
+my $fname = Migrations::Migrate::build_migration_script($FindBin::Bin . '/../lib',\%opt, \@components_rootdir);
+if ( defined $fname ) {
+    INFO "[I] Script de migration cree : $fname";
+    push @undo, { file => $fname };
 } else {
-    ERROR "[E] Migration failed.";
+    my $err = "[F] Erreur a la creation du script de migration. Abort.";
+    undo_all(@undo);
+    LOGDIE $err;
 }
-exit 0;
 
-__END__
 
+# cleartool setview -exec 
+my ($e,$r) = Migrations::Clearcase::cleartool('setview ', '-exec ', $fname,  $viewtag);
+print "e == > [$e]
+r ==> [" . ($r // 'undef') . ']
 
 ';
 
-print "
+INFO "[I] Ajout de l'import dans git";
+Migrations::Git::git('add' ,'-A');
+my $msg_commit = 'Import de la baseline ' . $tag . ' du stream ' . $opt{stream};
+$msg_commit .= "
 
-======> $fh
+$parms
+
+Baseline recomposée :
+";
+$msg_commit .= join '\n', @baselines;
+$msg_commit .= "
+
+Component rootdirs :
+";
+$msg_commit .= join '\n', @components_rootdir;
+$msg_commit .= "
 
 ";
-$fh->close();
 
-if ( chmod(0755,$fh->filename) != 1 ) {
-    ERROR "[E] Cannot chmod 0755 $fh";
-}
-
+INFO "[I] Commit"; 
+Migrations::Git::git('commit', '-m', 'Blablabla');
+INFO "[I] Creation du label $tag";
+Migrations::Git::git('tag', $tag);
 
 exit 0;
-
-# cleartool setview -exec 
-my ($e,$r) = Migrations::Clearcase::cleartool('setview ', '-exec ', $fh->filename,  $viewtag);
-
 
 
 # git co branch

@@ -8,15 +8,12 @@ use v5.18;
 
 our $VERSION = '0.0.1';
 
-use Carp;
 use Log::Log4perl qw(:easy);
 use File::Spec;
-use IPC::Run;
-use LWP::UserAgent;
-use File::Copy::Recursive;
+use File::Basename;
+use File::Copy::Recursive  qw(dircopy);
 
 use Migrations::Clearcase;
-
 
 
 #------------------------------------------------
@@ -58,6 +55,7 @@ sub init_logs
 # build_migration_script
 #
 # IN:
+#    $libdir: $FindBin::Bin . "/../lib"
 #    $opt : HASHref on the options of the main program
 #    $dirs: ARRAYref on the directories to copy from CC to Git
 #
@@ -68,11 +66,13 @@ sub init_logs
 #------------------------------------------------
 sub build_migration_script
 {
-    my $opt = shift;
-    my $dirs = shift;
+    my $libdir = shift;
+    my $opt    = shift;
+    my $dirs   = shift;
 
-    return undef unless ( ref($opt)  eq 'HASH'  );
-    return undef unless ( ref($dirs) eq 'ARRAY' );
+    return undef unless ( defined $libdir and ref($libdir) eq ''      );
+    return undef unless ( defined $opt    and ref($opt)    eq 'HASH'  );
+    return undef unless ( defined $dirs   and ref($dirs)   eq 'ARRAY' );
     return undef unless ( exists $opt->{logfile} and exists $opt->{repo} );
     return undef unless ( scalar @$dirs ) ;
 
@@ -80,21 +80,19 @@ sub build_migration_script
     print $fh "#!$^X
 
 use Log::Log4perl qw(:easy);
-use lib \"" . $FindBin::Bin . "/../lib\";
-
-
+use lib \"$libdir\";
+use Migrations::Migrate;
 ";
-    open my $pm, '<', $INC{'Migrations/Migrate.pm'} or die "Cannot open " . $INC{'Migrations/Migrate.pm'} . " : $!";
-    {
-        local $/ = undef;
-        my $str = <$pm>;
-        print $fh $str;
-        close $pm;
-    }
 
     print $fh '
 
-Migrations::Migrate::init_logs(">>'. $opt->{logfile} . '");
+if ( -f '. $opt->{logfile} . ' ) {
+    Migrations::Migrate::init_logs(">>'. $opt->{logfile} . '");
+} else {
+    # mainly if logfile is STDOUT or SDTERR
+    Migrations::Migrate::init_logs("'. $opt->{logfile} . '");
+}
+
 my $r = Migrations::Migrate::migrate_UCM("'. $opt->{repo}.'",';
     print $fh join (',', map { "'".$_."'" } @$dirs);
     print $fh ');
@@ -139,6 +137,7 @@ sub read_matching_file
     return undef if ( !defined $file and ref($file) ne '' );
 
     open my $fh, '<', $file or return $!;
+    DEBUG "[D] (read_matching_file) Opening [$file]";
     while ( <$fh> ) {
         # clean comments and spaces at the beginning and end of the line
         s/^\s+//; s/#.*//; s/\s+//; 
@@ -148,6 +147,7 @@ sub read_matching_file
         $k =~ s/\s+$//;
         $v =~ s/^\s+//;
         $hash->{$k} = $v;
+        DEBUG "[D] (read_matching_file) h{$k} = [$v]";
     }
     close $fh;
     return 0;
@@ -205,32 +205,39 @@ sub migrate_UCM
         ERROR "[E] Not in a view context.";
         return 2;
     }
+    DEBUG "[D] target = [$target]";
 
     my $matching = {};
-    my $r = read_matching_file($matching, File::Spec->catfile( File::Spec->splitdir($target)), 'matching_clearcase_git.txt' );
- 
+    my $r = read_matching_file($matching, File::Spec->catfile( File::Spec->splitdir($target), 'matching_clearcase_git.txt'));
+    while ( my ($k,$v) = each %$matching ) {
+        DEBUG "[D] matching{$k} = [$v]";
+    }
+
     my $dirty_bit = 0;
     my @error_comp = ();
     for my $compCC ( @compCC ) {
         my $vob  = dirname($compCC);
         my $comp = basename($compCC);
+        chdir ($vob); ## CHDIR
         my $dest_comp;
         if ( exists $matching->{$compCC} ) {
             $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $matching->{$compCC});
+            DEBUG "[D] [$compCC]=[$vob]/[$comp] ---> [$dest_comp]";
         } else {
-            $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $compCC);
+            $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $comp);
             if ( -d $dest_comp ) {
-                $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $vob) . '_' . $comp;
+                $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $vob . '_' . $comp);
                 my $idx = 0;
                 while ( -d $dest_comp ) {
-                    $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $vob) . '_' . $comp . '_' . $idx;
+                    $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $vob . '_' . $comp . '_' . $idx);
                     $idx++;
                 }
             }
             $matching->{$compCC} = basename($dest_comp);
             $dirty_bit++;
+            DEBUG "[D] [$compCC]=[$vob]/[$comp] ---> [$dest_comp]   (2)";
         }
-        my ($df, $d, $depth ) = dircopy($compCC, $dest_comp);  # copy $compCC/file ---> $dest_comp/file
+        my ($df, $d, $depth ) = dircopy($comp, $dest_comp);  # copy $comp/file ---> $dest_comp/file
         if ( defined $df ) {
             INFO "[I] Migration of $compCC to $dest_comp :";
             INFO "[I]     $df file(s) and directory(-ies)";
@@ -277,8 +284,6 @@ sub migrate_UCM
 
 1;
 
-#
-# no __DATA__ no __END__ allowed here
-#
+__DATA__
 
 
