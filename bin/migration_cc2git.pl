@@ -6,6 +6,7 @@ use v5.18;
 
 use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage qw(pod2usage);
+use Log::Log4perl qw(:easy);
 
 use FindBin;
 use lib "$FindBin::Bin/../lib";
@@ -15,6 +16,41 @@ use Migrations::Clearcase;
 use Migrations::Git;
 
 our $VERSION = '1.0.0';
+
+
+
+#------------------------------------------------
+# init_logs()
+#
+# Initialize Log::Log4perl
+#
+# IN: 
+#    logfile: the output of the logger
+#------------------------------------------------
+sub init_logs
+{
+    my $logfile = shift // "STDOUT";
+
+    Log::Log4perl->easy_init( { level    => $DEBUG,
+                                file     => $logfile,
+                                layout   => '%m%n',
+                              },
+                            ); 
+
+
+    # Log::Log4perl->easy_init( { level    => $DEBUG,
+    #                             file     => ">>test.log",
+    #                             category => "Migrations::Parameters",
+    #                             layout   => '%F{1}-%L-%M: %m%n' },
+    #                           { level    => $DEBUG,
+    #                             file     => "STDOUT",
+    #                             category => "main",
+    #                             layout   => '%m%n' },
+    #                         );
+
+}
+# end of init_logs()
+#------------------------------------------------
 
 
 #
@@ -39,9 +75,9 @@ my %expected_args = (
         mandatory => 1,
         getopt => 'branch=s',
         },
-    output => {
+    logfile => {
         mandatory => 1,
-        getopt => 'output=s',
+        getopt => 'logfile=s',
         },
     baseline => {
         mandatory_unless => [ 'bls' ],
@@ -89,6 +125,8 @@ my %expected_args = (
     );
 # end of %expected_args
 
+init_logs();
+
 my %opt;
 my @valid_args = Migrations::Parameters::list_for_getopt(\%expected_args);
 
@@ -124,12 +162,36 @@ if ( exists $opt{input} ) {
 my $ret = Migrations::Parameters::validate_arguments(\%opt, \%expected_args);
 if ( $ret ) {
     $! = $ret;
-    die '[F] Error(s) with the arguments. Abort.';
+    LOGDIE '[F] Error(s) with the arguments. Abort.';
 }
 
-if ( -e $opt{output} ) {
-    die "[F] $opt{output} already exists. Abort.";
+if ( -e $opt{logfile} ) {
+    WARN "[W] $opt{logfile} already exists. Will be appended.";
+    init_logs(">>".$opt{logfile});
+    INFO '
+
+-----------------------------------------------------------------------
+
+';
+} else {
+    if ( $opt{logfile} eq '-' ) {
+        $opt{logfile} = 'STDOUT';
+    }
+    init_logs($opt{logfile});
 }
+
+
+INFO "[I] Demarrage de la migration Clearcase --> Git";
+INFO "[I] ";
+INFO "[I] Parametres d'appel :";
+for my $k ( sort keys %opt ) {
+    my $s = sprintf("[I]    %-10s %s\n",$k,$opt{$k});
+    INFO $s;
+}
+INFO "[I] ";
+
+INFO "[I] Est-ce que Clearcase est installe ?";
+
 
 exit 0;
 
@@ -162,7 +224,7 @@ version 0.0.1
     --baseline X.Y.Z-SNAPSHOT : le nom « générique » de la baseline
     --repo depot : le dépôt Git vers lequel les données migrent
     --branch branche : la branche Git qui reçoit les données
-    --output file : fichier de log (si file = - : STDOUT+STDERR)
+    --logfile file : fichier de log (si file = - : STDOUT+STDERR)
         Si absent : message d’erreur sur STDERR
 
   Optional parameters:

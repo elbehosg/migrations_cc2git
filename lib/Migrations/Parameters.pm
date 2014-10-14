@@ -8,6 +8,7 @@ our $VERSION = '0.0.1';
 
 use Carp;
 use List::MoreUtils qw(none any );
+use Log::Log4perl qw(:easy);
 
 use Data::Dumper;
 
@@ -50,8 +51,8 @@ sub list_for_getopt
 {
     my $hash = shift;
 
-    die "[F] Parameter 'hash' in " . __PACKAGE__ . "::list_for_getopt() is required. Abort.\n" unless (defined $hash );
-    die "[F] 'hash' in " . __PACKAGE__ . "::list_for_getopt() must be an HASH ref. Abort.\n"   unless (ref($hash) eq 'HASH');
+    LOGDIE "[F] Parameter 'hash' in " . __PACKAGE__ . "::list_for_getopt() is required. Abort.\n" unless (defined $hash );
+    LOGDIE "[F] 'hash' in " . __PACKAGE__ . "::list_for_getopt() must be an HASH ref. Abort.\n"   unless (ref($hash) eq 'HASH');
 
     my @list = map { $_->{getopt} } grep  { exists $_->{getopt} } values %$hash;
 
@@ -99,8 +100,8 @@ sub validate_expected_args
 {
     my $hash = shift;
 
-    die "[F] Parameter 'hash' in " . __PACKAGE__ . "::validate_expected_args() is required. Abort.\n" unless (defined $hash );
-    die "[F] 'hash' in " . __PACKAGE__ . "::validate_expected_args() must be an HASH ref. Abort.\n"   unless (ref($hash) eq 'HASH');
+    LOGDIE "[F] Parameter 'hash' in " . __PACKAGE__ . "::validate_expected_args() is required. Abort.\n" unless (defined $hash );
+    LOGDIE "[F] 'hash' in " . __PACKAGE__ . "::validate_expected_args() must be an HASH ref. Abort.\n"   unless (ref($hash) eq 'HASH');
 
     my $err = 0;
 
@@ -148,13 +149,14 @@ sub validate_arguments
     my $opt       = shift;
     my $exptd     = shift;
 
-    die "[F] Illegal argument 'opt' in "   . __PACKAGE__ ."::validate_arguments()\n" unless (defined $opt   and ref($opt)   eq 'HASH' );
-    die "[F] Illegal argument 'exptd' in " . __PACKAGE__ ."::validate_arguments()\n" unless (defined $exptd and ref($exptd) eq 'HASH' );
+    LOGDIE "[F] Illegal argument 'opt' in "   . __PACKAGE__ ."::validate_arguments()\n" unless (defined $opt   and ref($opt)   eq 'HASH' );
+    LOGDIE "[F] Illegal argument 'exptd' in " . __PACKAGE__ ."::validate_arguments()\n" unless (defined $exptd and ref($exptd) eq 'HASH' );
 
     my $err = 0;
     #
     # Check if the mandatory parameters are set
     #
+    DEBUG('Check if the mandatory parameters are set');
     my @missing = ();
     while ( my ($k,$v) = each %$exptd ) {
         if ( exists $v->{mandatory} and $v->{mandatory} and !exists $opt->{$k} ) {
@@ -167,7 +169,7 @@ sub validate_arguments
         }
     }
     if ( scalar @missing ) {
-        warn "[W] Missing mandatory arguments: " . ( join ',', sort @missing) . "\n";
+        WARN "[W] Missing mandatory arguments: " . ( join ',', sort @missing) . "\n";
         $err += 1;
     }
 
@@ -178,7 +180,7 @@ sub validate_arguments
         if ( exists $exptd->{$k}->{exclude} ) {
             my @shouldnotbehere = @{ $exptd->{$k}->{exclude} };
             if ( any { exists $opt->{$_} } @shouldnotbehere ) {
-                warn "[W] Conflicting arguments ($k and another one).\n";
+                WARN "[W] Conflicting arguments ($k and another one).\n";
                 $err += 2;
                 last;
             }

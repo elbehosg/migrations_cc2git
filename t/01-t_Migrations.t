@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More ; #tests => 5;
+use Test::More  tests => 3;
 
 BEGIN {
         use_ok("Migrations::Parameters");
