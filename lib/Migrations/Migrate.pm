@@ -6,12 +6,14 @@ use strict;
 use warnings;
 use v5.18;
 
-our $VERSION = '0.0.1';
+our $VERSION = '1.0';
 
 use Log::Log4perl qw(:easy);
 use File::Spec;
 use File::Basename;
 use File::Copy::Recursive  qw(dircopy);
+use File::Find::Rule::DirectoryEmpty ;
+use File::Touch;
 
 use Migrations::Clearcase;
 
@@ -178,6 +180,57 @@ sub write_matching_file
 #------------------------------------------------
 
 #------------------------------------------------
+# empty_dirs
+#
+# Add a empty file in empty directories so that
+# git can add them to source control
+#
+# $target: the local repository
+#
+# RETURNS :
+# 0 if all is OK
+# 1 if WARNings (less .empty4git touch-ed than empty dirs)
+# 2 if ERRORs (including wrong args and wrong context)
+#
+#------------------------------------------------
+sub empty_dirs
+{
+    my $target = shift;
+    my $exclude_dot_git = shift // 1;
+
+    return 2 if ( ! defined $target );
+    return 2 if ( ! -d $target );
+    return 2 if ( ($exclude_dot_git != 0) and ($exclude_dot_git != 1) );
+
+    my @empty_dirs = File::Find::Rule->directoryempty->in($target);
+    DEBUG "[D] " . (scalar @empty_dirs) . " empty dirs found.";
+    DEBUG "[D]    $_" for @empty_dirs;
+
+    return 0 if ( scalar @empty_dirs  == 0 );
+
+    my @empty4git;
+    if ( $exclude_dot_git ) {
+        @empty4git = map { File::Spec->catdir(File::Spec->splitdir($_), '.empty4git') } grep { ! /\.git/ } @empty_dirs;
+    } else {
+        @empty4git = map { File::Spec->catdir(File::Spec->splitdir($_), '.empty4git') } @empty_dirs;
+    }
+    DEBUG "[D] " . (scalar @empty4git) . " .empty4git to be touched.";
+    DEBUG "[D]    $_" for @empty4git;
+
+    return 0 if ( scalar @empty4git == 0 );
+
+    my $count = touch(@empty4git);
+    DEBUG "[D] $count .empty4git touched.";
+    if ( $count != scalar @empty4git ) {
+        WARN "[W] Seulement $count fichier(s) .empty4git cree(s) alors qu'on en attendait " . ( scalar @empty4git ) . ".";
+        return 1;
+    }
+
+    return 0;
+}
+#------------------------------------------------
+
+#------------------------------------------------
 # view context mandatory
 #
 # the baseline to export is selected by the view
@@ -251,6 +304,7 @@ sub migrate_UCM
             ERROR "[E] At least one file/directory cannot be copied.";
         }
     } # for $compCC
+    empty_dirs($target);
 
     if ( $dirty_bit ) {
         # new entries in the matching file, let's save it

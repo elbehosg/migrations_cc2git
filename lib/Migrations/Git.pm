@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use v5.18;
 
-our $VERSION = '0.0.1';
+our $VERSION = '1.0';
 
 use Carp;
 use Log::Log4perl qw(:easy);
@@ -110,12 +110,14 @@ sub git
     my ($in,$r,$out,$err);
     my @cmd = ( $GIT, @args );
     eval {
+        # /!\ run() and finish() return TRUE when all subcommands exit with a 0 result code
+        #     and raise an exception on errors
         $r = IPC::Run::run(\@cmd,\$in,\$out,\$err);
     };
     if ( $@ ) {
         return wantarray ? (undef, $@) : undef;
     } else {
-        return wantarray ? ($r,$out,$err) : ($out||$err);
+        return wantarray ? (0,$out,$err) : ($out||$err);
     }
 }
 # end of git()

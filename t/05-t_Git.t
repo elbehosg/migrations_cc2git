@@ -34,7 +34,7 @@ usage: git [--version] [--help] [-C <path>] [-c name=value]
            <command> [<args>]
 ', 'Migrations::Git::git(--booh)');
     my @r = Migrations::Git::git('--booh');
-    is($r[0], '', 'Migrations::Git::git(-booh)');
+    is($r[0], 0, 'Migrations::Git::git(-booh)');
     is($r[1], '', 'Migrations::Git::git(-booh)');
     is($r[2], 'Unknown option: --booh
 usage: git [--version] [--help] [-C <path>] [-c name=value]
@@ -45,7 +45,7 @@ usage: git [--version] [--help] [-C <path>] [-c name=value]
 ', 'Migrations::Git::git(-booh)');
 
     @r = Migrations::Git::git('--version');
-    is($r[0], '1', 'Migrations::Git::git(--version)');
+    is($r[0], 0, 'Migrations::Git::git(--version)');
     is(substr($r[1],0, 12), 'git version ', 'Migrations::Git::git(--version)');
     #ok($r[0] == 0, 'Migrations::Git::git(--version)');
 

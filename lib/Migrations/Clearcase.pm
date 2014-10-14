@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use v5.18;
 
-our $VERSION = '0.1';
+our $VERSION = '1.0';
 
 use Carp;
 use Log::Log4perl qw(:easy);
@@ -484,7 +484,7 @@ sub make_stream
     return undef unless ( defined $parent and defined $baseline );
     return undef unless ( defined check_stream($parent) );
 
-DEBUG ">>\n>>IN make_stream\n";
+DEBUG "[D]\n[D] IN make_stream\n";
     my $pvob = $parent;
     substr($pvob, 0, index($pvob,'@',0)+1) = '';
     # force $parent to be : stream:xxxx@PVOB
@@ -495,14 +495,14 @@ DEBUG ">>\n>>IN make_stream\n";
     substr($new, index($new,'@',0)) = '';
     $new    =~ s/_(ass|dev|mainline|int)?$//i;
     $new   .= $suffix . '@' . $pvob;
-DEBUG ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
+DEBUG "[D] (make_stream) [$parent] [$pvob] [$suffix] new = [$new]\n";
     my  $r = check_stream($new);
-DEBUG ">> r = " .( $r  // 'undef (OK)' )."\n";
+DEBUG "[D] (make_stream) r = " .( $r  // 'undef (OK)' )."\n";
     return undef if ( defined check_stream($new) );
-DEBUG ">> new = [$new]\n";
+DEBUG "[D] (make_stream) new = [$new]\n";
 
     my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
-DEBUG ">> e   = [$e]\n";
+DEBUG "[D] (make_stream) e   = [$e]\n";
     if (defined $e and $e == 0 ) {
         # success
         return $new;
