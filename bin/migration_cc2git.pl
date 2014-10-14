@@ -220,7 +220,13 @@ if ( defined $stream ) {
     WARN '[W] La stream fournie ('. $opt{stream} . ') est incorrecte.';
 }
 INFO "[I] ";
+INFO "[I] Recupération des composants Clearcase :";
+my @components = Migrations::Clearcase::get_components($opt{stream});
+if ( ! defined $components[0] ) {
+    LOGDIE('[F] Impossible de récupérer la liste des composants de ' . $opt{stream} . '. Fatal.');
+}
 
+INFO "[I] ";
 
 INFO "[I] Est-ce que la baseline est valide ?";
 if ( exists $opt{bls} and exists $opt{baseline} ) {
@@ -241,6 +247,7 @@ INFO "[I]   $_" for ( @baselines );
 
 INFO "[I] ";
 
+
 INFO "[I] Création du stream d'export";
 # on cree le stream (-ro)
 my $stream4export = Migrations::Clearcase::make_stream($opt{stream}, (join ',', @baselines));
@@ -250,7 +257,7 @@ if ( ! defined $stream4export ) {
 
 # on cree la vue sur le stream
 my $u = $ENV{USERNAME} // ( $ENV{LOGNAME} // ( $ENV{LOGNAME} // 'unknownuser' ) );
-my $s = substr($stream4export,7);
+$s = substr($stream4export,7);
 $s = substr($s, 0, index($s,'@'));
 my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
 
@@ -275,15 +282,15 @@ if ( !defined $git ) {
     INFO "[I] Git est $git";
 }
 
-INFO "[I] Est-ce que le depot local existe ?"
+INFO "[I] Est-ce que le depot local existe ?";
 if ( ! Migrations::Git::check_local_repo($opt{repo}) ) {
-    LOGDIE "[F] Le depot local $opt{repo} n'est pas un depot git. Abort.\n");
+    LOGDIE "[F] Le depot local $opt{repo} n'est pas un depot git. Abort.\n";
 }
 INFO "[I] Le depot $opt{repo} existe.";
 
 INFO "[I] Est-ce que la branche d'import existe ?";
 if ( ! Migrations::Git::check_branch($opt{repo}, $opt{branch}) ) {
-    LOGDIE "[F] Le depot local $opt{repo} ne comporte pas de branche $opt{branch}. Abort.\n");
+    LOGDIE "[F] Le depot local $opt{repo} ne comporte pas de branche $opt{branch}. Abort.\n";
 }
 INFO "[I] La branche $opt{branch} existe dans le depot $opt{repo}.";
 
@@ -306,7 +313,9 @@ if ( -f 'matching_clearcase_git.txt' ) {
     }
     close $f;
 } else {
+    # touch hing_clearcase_git.txt
     open my $f, '>', 'matching_clearcase_git.txt' or LOGDIE("Cannot create an empty 'matching_clearcase_git.txt'. Abort.");
+    close $f;
 }
 
 # cleartool setview ...

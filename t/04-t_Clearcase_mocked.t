@@ -156,6 +156,9 @@ $r = Migrations::Clearcase::make_view('x120248_new_view','stream:PARTICULIER_Mai
 ok((defined $r and $r eq 'x120248_new_view'), '04.08.15 - Migrations::Clearcase::make_view(x120248_new_view,stream:PARTICULIER_Mainline@/vobs/PVOB_MA,viewstgloc)');
 
 
+
+diag("Missing tests :\n    check_view_context()\n    get_components()\n");
+
 print "\n";
 
 END {

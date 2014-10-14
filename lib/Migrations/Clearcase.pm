@@ -297,6 +297,107 @@ sub check_view
 
 
 #------------------------------------------------
+# check_view_context()
+#
+# Check if the current process is in a view
+#
+# RETURN
+#     undef if cleartool cannot be found
+#     0 in a view context
+#     1 if not
+# 
+#------------------------------------------------
+sub check_view_context
+{
+    my ($e) = cleartool('lsview', '-cview');
+    return $e;
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
+# get_components
+#
+# Return the list of components of the stream
+#
+# Assumes cleartool does exists!
+#
+# RETURN (scalar context)
+#     undef if the stream is invalid or cleartool doesn't exist
+#     component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2
+#           if everything's ok
+#
+# RETURN (array context)
+#     (undef) if the stream is invalid or cleartool doesn't exist
+#     (component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2)
+#           if everything's ok
+#------------------------------------------------
+sub get_components
+{
+    my $stream = shift;
+
+    return undef unless ( defined $stream );
+    return undef unless ( defined check_stream($stream) );
+
+    my $pvob = $stream;
+    substr($pvob, 0, index($pvob,'@',0)+1) = '';
+    # force $stream to be : stream:xxxx@PVOB
+    $stream =~ s/^stream://;
+    $stream = "stream:$stream";
+
+    my ($e, @comps) = cleartool("lsstream -fmt '%[components]NXp' ", $stream);
+    # should not fail as check_stream($stream) validated it as stream:
+    return undef unless ( defined $e and $e == 0);
+    return undef unless scalar @comps;
+    my @comps2 = ();
+    for my $c ( @comps ) {
+        my ($e, $cvob) = cleartool("lsstream -fmt '%[root_dir]p'", $c);
+        next unless ( $e == 0);
+        
+    }
+    return wantarray ? @comps : ( join ',',@comps);
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
+# get_components_rootdir
+#
+# Return the list of the root dir of the components
+#
+# Assumes cleartool does exists!
+#
+# RETURN (scalar context)
+#     undef if the stream is invalid or cleartool doesn't exist
+#     component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2
+#           if everything's ok
+#
+# RETURN (array context)
+#     (undef) if the stream is invalid or cleartool doesn't exist
+#     (component:comp1@PVOB1,component:comp2@PVOB1,component:comp3@PVOB2)
+#           if everything's ok
+#------------------------------------------------
+sub get_components_rootdir
+{
+    my @list = @_;
+
+    my @rootdirs = ();
+
+    for my $c ( @list ) {
+        my ($e, $cvob) = cleartool("lsstream -fmt '%[root_dir]p'", $c);
+        if ( defined $e and $e == 0 ) {
+            push @rootdirs, $cvob;
+        } else {
+            push @rootdirs, undef;
+        }
+    }
+
+    return wantarray ? @rootdirs : ( join ',',@rootdirs);
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
 # compose_baseline()
 #
 # Compose the baseline using a X.Y.Z-SNAPSHOT notation

@@ -16,7 +16,44 @@ use Migrations::Clearcase;
 use Migrations::Git;
 
 
+sub read_matching_file
+{
+    #TODO
+    my %hash;
+    return \%hash;
+}
 
+sub write_matching_file
+{
+    #TODO
+    my $hash = shift;
+    my $file = shift;
+    return undef if ( !defined $hash and ref($hash) ne 'HASH' );
+    return undef if ( !defined $file and ref($file) ne '' );
+    return 0;
+}
+
+# view context mandatory
+sub migrate_UCM
+{
+    my $target = shift;
+    my @compCC = @_;    # array of full 
+
+    return undef unless ( defined $target and $target );
+    return undef unless (scalar @compCC
+    my $ctxt = Migrations::Clearcase::check_view_context();
+    return undef if ( !defined $ctxt or $ctxt );
+
+    my $maching = read_matching_file(File::Spect->catfile( File::Spect->splitdir($target), 'matching_clearcase_git.txt' );
+    for my $compCC ( @compCC ) {
+        
+        if ( exists $maching->{$compCC} ) {
+            $dest_comp = File::Spect->catdir(File::Spect->splitdir($target), $maching->{$compCC});
+        } else {
+            
+        }
+    }
+}
 
 
 
