@@ -89,21 +89,21 @@ sub git
 {
     state $GIT;
     if ( !defined $GIT ) {
-        INFO "[I] Searching git...";
+        INFO "Searching git...";
         $GIT = where_is_git();
         if ( !defined $GIT ) {
             return undef;
         }
-        INFO "[I] git is $GIT";
+        INFO "git is $GIT";
     }
 
     if ( scalar @_ == 0 ) {
-        INFO "[I] Calling: git <no args>";
+        INFO "Calling: git <no args>";
         return wantarray ? () : '';
     }
     
     my @args = @_;
-    INFO "[I] Calling: git " . ( join ' ',@args );
+    INFO "Calling: git " . ( join ' ',@args );
 
     # Assume the arguments have been sanitized
     # (They should not come from the user)
@@ -191,13 +191,13 @@ sub check_remote_repo
     my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:17.0) Gecko/20100101 Firefox/17.0');
     my $req = HTTP::Request->new(GET => "$url");
     my $res = $ua->request($req);
-    #DEBUG "[D] [" . $req->uri . "] code : " . $res->code . "\n"; # commented out because it may display crendentials
-    DEBUG "[D] [url hidden] code        : " . $res->code . "\n";
-    DEBUG "[D] [url hidden] status_line : " . $res->status_line . "\n";
-    DEBUG "[D] [url hidden] content     : " . $res->content . "\n";
+    #DEBUG "[" . $req->uri . "] code : " . $res->code . "\n"; # commented out because it may display crendentials
+    DEBUG "[url hidden] code        : " . $res->code . "\n";
+    DEBUG "[url hidden] status_line : " . $res->status_line . "\n";
+    DEBUG "[url hidden] content     : " . $res->content . "\n";
 
     unless ( $res->is_success ) {
-        WARN "[W] Error on [$url]: " . $res->status_line . "\n";
+        WARN "Error on [$url]: " . $res->status_line . "\n";
         return wantarray ? ($res->code, $res->status_line) : $res->code ;
     }
 

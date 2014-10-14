@@ -91,28 +91,28 @@ sub cleartool
 {
     state $CLEARTOOL;
     if ( !defined $CLEARTOOL ) {
-        INFO "[I] Searching cleartool...";
+        INFO "Searching cleartool...";
         $CLEARTOOL = where_is_cleartool();
         if ( !defined $CLEARTOOL ) {
             return undef;
         }
-        INFO "[I] cleartool is $CLEARTOOL";
+        INFO "cleartool is $CLEARTOOL";
     }
 
     if ( scalar @_ == 0 ) {
-        INFO "[I] Calling: cleartool <no args>";
+        INFO "Calling: cleartool <no args>";
         return wantarray ? () : '';
     }
     
     my @args = @_;
-    INFO "[I] Calling: cleartool " . ( join ' ',@args );
+    INFO "Calling: cleartool " . ( join ' ',@args );
 
     # Assume the arguments have been sanitized
     # (They should not come from the user)
     my $cmd = join ' ', $CLEARTOOL, @args;
     # cannot use open with a list because redirect of STDERR does not work
     # to improve, have a look on IPC::Open3 or IPC::Run or alike
-    open my $ct, '-|', $cmd . ' 2>&1'      or LOGDIE "[F] Cannot execute $cmd. Abort.";
+    open my $ct, '-|', $cmd . ' 2>&1'      or LOGDIE "Cannot execute $cmd. Abort.";
     my @ret = <$ct>;
     close $ct;
     my $r = $? >>8;
@@ -440,7 +440,7 @@ sub compose_baseline
         #my $cc = $baseline .'_' . $c;
         my ($e, $bl) = cleartool('lsbl -s ', $cc);
         if ( !defined $e or $e ) {
-            WARN "[W] No baseline '$baseline' for component '$c' ($cc).";
+            WARN "No baseline '$baseline' for component '$c' ($cc).";
         } else {
             push @bls, $cc;
         }
@@ -484,7 +484,7 @@ sub make_stream
     return undef unless ( defined $parent and defined $baseline );
     return undef unless ( defined check_stream($parent) );
 
-DEBUG "[D]\n[D] IN make_stream\n";
+DEBUG "\nIN make_stream\n";
     my $pvob = $parent;
     substr($pvob, 0, index($pvob,'@',0)+1) = '';
     # force $parent to be : stream:xxxx@PVOB
@@ -495,14 +495,14 @@ DEBUG "[D]\n[D] IN make_stream\n";
     substr($new, index($new,'@',0)) = '';
     $new    =~ s/_(ass|dev|mainline|int)?$//i;
     $new   .= $suffix . '@' . $pvob;
-DEBUG "[D] (make_stream) [$parent] [$pvob] [$suffix] new = [$new]\n";
+DEBUG "(make_stream) [$parent] [$pvob] [$suffix] new = [$new]\n";
     my  $r = check_stream($new);
-DEBUG "[D] (make_stream) r = " .( $r  // 'undef (OK)' )."\n";
+DEBUG "(make_stream) r = " .( $r  // 'undef (OK)' )."\n";
     return undef if ( defined check_stream($new) );
-DEBUG "[D] (make_stream) new = [$new]\n";
+DEBUG "(make_stream) new = [$new]\n";
 
     my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
-DEBUG "[D] (make_stream) e   = [$e]\n";
+DEBUG "(make_stream) e   = [$e]\n";
     if (defined $e and $e == 0 ) {
         # success
         return $new;

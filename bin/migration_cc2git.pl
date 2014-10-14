@@ -49,7 +49,7 @@ sub undo_all
         if ( $k eq 'stream' ) {
             my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $v);
             if ( $e ) {
-                ERROR "[E] Impossible de supprimer le stream $v.";
+                ERROR "Impossible de supprimer le stream $v.";
             } else {
                 push @success, $u;
             }
@@ -58,7 +58,7 @@ sub undo_all
         if ( $k eq 'view' ) {
             my ($e,$r) = Migrations::Clearcase::cleartool('rmview ', '-tag ', $v);
             if ( $e ) {
-                ERROR "[E] Impossible de supprimer la vue $v.";
+                ERROR "Impossible de supprimer la vue $v.";
             } else {
                 push @success, $u;
             }
@@ -67,7 +67,7 @@ sub undo_all
         if ( $k eq 'file' ) {
             my $e = unlink $v;
             if ( $e != 1 ) {
-                ERROR "[E] Impossible de le fichier $v ($!).";
+                ERROR "Impossible de le fichier $v ($!).";
             } else {
                 push @success, $u;
             }
@@ -100,38 +100,38 @@ sub check_clearcase_status
     my $opt = shift;
     my $data = shift;
 
-    INFO "[I] Est-ce que Clearcase est installe ?";
+    INFO "Est-ce que Clearcase est installe ?";
     my $ct = Migrations::Clearcase::where_is_cleartool();
     if ( !defined $ct ) {
-        WARN "[W] Clearcase n'est pas disponible.";
+        WARN "Clearcase n'est pas disponible.";
     } else {
-        INFO "[I] Cleartool est $ct";
+        INFO "Cleartool est $ct";
     }
     $data->{cleartool} = $ct;
 
-    INFO "[I] Est-ce que la stream est valide ?";
+    INFO "Est-ce que la stream est valide ?";
     my $stream   = Migrations::Clearcase::check_stream($opt->{stream});
     if ( defined $stream ) {
-        INFO '[I] La stream ' . $opt->{stream} . ' est définie.';
+        INFO 'La stream ' . $opt->{stream} . ' est définie.';
     } else {
-        WARN '[W] La stream fournie ('. $opt->{stream} . ') est incorrecte.';
+        WARN 'La stream fournie ('. $opt->{stream} . ') est incorrecte.';
     }
-    INFO "[I] ";
-    INFO "[I] Recupération des composants Clearcase :";
+    INFO "";
+    INFO "Recupération des composants Clearcase :";
     my @components = Migrations::Clearcase::get_components($opt->{stream});
     if ( ! defined $components[0] ) {
-        LOGDIE('[F] Impossible de récupérer la liste des composants de ' . $opt->{stream} . '. Fatal.');
+        LOGDIE('Impossible de récupérer la liste des composants de ' . $opt->{stream} . '. Fatal.');
     }
     $data->{components} = \@components;
     my @components_rootdir = Migrations::Clearcase::get_components_rootdir(@components);
     if ( ! defined $components_rootdir[0] ) {
-        LOGDIE('[F] Impossible de récupérer les rootdir des composants de ' . $opt->{stream} . '. Fatal.');
+        LOGDIE('Impossible de récupérer les rootdir des composants de ' . $opt->{stream} . '. Fatal.');
     }
     $data->{components_rootdir} = \@components_rootdir;
 
-    INFO "[I] ";
+    INFO "";
 
-    INFO "[I] Est-ce que la baseline est valide ?";
+    INFO "Est-ce que la baseline est valide ?";
     if ( exists $opt->{bls} and exists $opt->{baseline} ) {
         LOGDIE('bls et baseline en meme temps. Ca pue trop. J\'arrete tout.');
     }
@@ -139,17 +139,17 @@ sub check_clearcase_status
     if ( exists $opt->{baseline} ) {
         @baselines = Migrations::Clearcase::compose_baseline($opt->{stream},$opt->{baseline});
         if ( !defined $baselines[0] ) {
-            LOGDIE "[F] La baseline fournie ($opt->{baseline}) ne convient pas. Fatal.";
+            LOGDIE "La baseline fournie ($opt->{baseline}) ne convient pas. Fatal.";
         }
     } else {
         @baselines = grep { Migrations::Clearcase::check_baseline($_) == 0 } @{$opt->{bls}};
     }
     $data->{baselines} = \@baselines;
 
-    INFO "[I] Baseline recomposée :";
-    INFO "[I]   $_" for ( @baselines );
+    INFO "Baseline recomposée :";
+    INFO "  $_" for ( @baselines );
 
-    INFO "[I] ";
+    INFO "";
 
 }
 # end of check_clearcase_status()
@@ -176,34 +176,34 @@ sub check_git_status
     my $opt = shift;
     my $data = shift;
 
-    INFO "[I] ";
-    INFO "[I] Est-ce que git est installe ?";
+    INFO "";
+    INFO "Est-ce que git est installe ?";
     my $git = Migrations::Git::where_is_git();
     if ( !defined $git ) {
-        WARN "[W] Git n'est pas disponible.";
+        WARN "Git n'est pas disponible.";
     } else {
-        INFO "[I] Git est $git";
+        INFO "Git est $git";
     }
     $data->{git} = $git;
  
-    INFO "[I] Est-ce que le depot local existe ?";
+    INFO "Est-ce que le depot local existe ?";
     if ( ! Migrations::Git::check_local_repo($opt->{repo}) ) {
-        LOGDIE "[F] Le depot local $opt->{repo} n'est pas un depot git. Fatal.\n";
+        LOGDIE "Le depot local $opt->{repo} n'est pas un depot git. Fatal.\n";
     }
-    INFO "[I] Le depot $opt->{repo} existe.";
+    INFO "Le depot $opt->{repo} existe.";
 
-    INFO "[I] Est-ce que la branche d'import existe ?";
+    INFO "Est-ce que la branche d'import existe ?";
     if ( ! Migrations::Git::check_branch($opt->{repo}, $opt->{branch}) ) {
-        LOGDIE "[F] Le depot local $opt->{repo} ne comporte pas de branche $opt->{branch}. Fatal.\n";
+        LOGDIE "Le depot local $opt->{repo} ne comporte pas de branche $opt->{branch}. Fatal.\n";
     }
-    INFO "[I] La branche $opt->{branch} existe dans le depot $opt->{repo}.";
+    INFO "La branche $opt->{branch} existe dans le depot $opt->{repo}.";
 
     $data->{tag} = ( exists $opt->{baseline} ) ? $opt->{baseline} : $opt->{tag};
-    INFO "[I] Est-ce que le tag d'import existe ?";
+    INFO "Est-ce que le tag d'import existe ?";
     if ( Migrations::Git::check_branch($opt->{repo}, $data->{tag}) ) {
-        LOGDIE "[F] Le depot local $opt->{repo} comporte deja un tag $data->{tag}. Fatal.\n";
+        LOGDIE "Le depot local $opt->{repo} comporte deja un tag $data->{tag}. Fatal.\n";
     }
-    INFO "[I] Le tag $data->{tag} n'existe pas dans le depot $opt->{repo}.";
+    INFO "Le tag $data->{tag} n'existe pas dans le depot $opt->{repo}.";
 }
 # end of check_git_status()
 #------------------------------------------------
@@ -229,11 +229,11 @@ sub prepare_clearcase
     my $opt = shift;
     my $data = shift;
 
-    INFO "[I] Création du stream d'export";
+    INFO "Création du stream d'export";
     # on cree le stream (-ro)
     my $stream4export = Migrations::Clearcase::make_stream($opt->{stream}, (join ',', @{$data->{baselines}}));
     if ( ! defined $stream4export ) {
-        LOGDIE "[F] Impossible de creer le stream Clearcase pour l'export. Abort.";
+        LOGDIE "Impossible de creer le stream Clearcase pour l'export. Abort.";
     }
     push @{$data->{undo}}, { stream => $stream4export };
     $data->{stream4export} = $stream4export;
@@ -245,7 +245,7 @@ sub prepare_clearcase
     $s = substr($s, 0, index($s,'@'));
     my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
     if ( ! defined $viewtag ) {
-        my $err = "[F] Impossible de creer la vue Clearcase pour l'export. Abort.";
+        my $err = "Impossible de creer la vue Clearcase pour l'export. Abort.";
         undo_all(@{$data->{undo}});
         LOGDIE $err;
     }
@@ -277,7 +277,7 @@ sub prepare_git
     my $opt = shift;
     my $data = shift;
 
-    INFO "[I] Préparatif de la branche $opt->{branch}.";
+    INFO "Préparatif de la branche $opt->{branch}.";
     my $old_cwd = File::Spec->curdir;
     chdir $opt->{repo};
     Migrations::Git::git('checkout', $opt->{branch});
@@ -323,45 +323,45 @@ sub transfer_data
 
     my $fname = Migrations::Migrate::build_migration_script($FindBin::Bin . '/../lib',$opt, $data->{components_rootdir});
     if ( defined $fname ) {
-        INFO "[I] Script de migration cree : $fname";
+        INFO "Script de migration cree : $fname";
         push @{$data->{undo}}, { file => $fname };
     } else {
-        my $err = "[F] Erreur a la creation du script de migration. Abort.";
+        my $err = "Erreur a la creation du script de migration. Abort.";
         undo_all(@{$data->{undo}});
         LOGDIE $err;
     }
 
     # cleartool setview -exec 
-    INFO "[I] Debut de l'import des donnees de Clearcase vers Git...";
+    INFO "Debut de l'import des donnees de Clearcase vers Git...";
     my ($e,@r) = Migrations::Clearcase::cleartool('setview ', '-exec ', $fname,  $data->{viewtag});
     if ( $e ) {
-        FATAL "[F] Erreur lors de l'extraction de donnees par cleartool setview -exec $fname $data->{viewtag}";
+        FATAL "Erreur lors de l'extraction de donnees par cleartool setview -exec $fname $data->{viewtag}";
         for my $r ( @r ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        LOGDIE("[F] Fatal.");
+        LOGDIE("Fatal.");
     } else {
         for my $r ( @r ) {
-            INFO "[I] > $r";
+            INFO "> $r";
         }
     }
-    INFO "[I] Import reussi";
+    INFO "Import reussi";
 
-    INFO "[I] Ajout de l'import dans git";
+    INFO "Ajout de l'import dans git";
     my ($sout, $serr);
     ($e, $sout, $serr) = Migrations::Git::git('add' ,'-A');
     if ( $e ) {
-        FATAL "[F] Erreur lors de l'import sous git par 'git add -A'.";
+        FATAL "Erreur lors de l'import sous git par 'git add -A'.";
         for my $r ( split "\n", $sout ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        FATAL "[F]";
+        FATAL "";
         for my $r ( split "\n", $serr ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        LOGDIE("[F] Fatal.");
+        LOGDIE("Fatal.");
     }
-    INFO "[I] Ajout dans git reussi";
+    INFO "Ajout dans git reussi";
     push @{$data->{undo}}, { git_add_A =>  '???' };
 
 }
@@ -408,37 +408,37 @@ Component rootdirs :
 ";
     #--------------
 
-    INFO "[I] Commit de l'import"; 
+    INFO "Commit de l'import"; 
     my ($e, $sout, $serr) = Migrations::Git::git('commit', '-m', $data->{msg_commit});
     if ( $e ) {
         my $headline = substr($data->{msg_commit}, 0, 40);
-        FATAL "[F] Erreur lors du commit sous git par 'git commit -m" . $headline . "...'.";
+        FATAL "Erreur lors du commit sous git par 'git commit -m" . $headline . "...'.";
         for my $r ( split "\n", $sout ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        FATAL "[F]";
+        FATAL "";
         for my $r ( split "\n", $serr ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        LOGDIE("[F] Fatal.");
+        LOGDIE("Fatal.");
     }
-    INFO "[I] Commit reussi";
+    INFO "Commit reussi";
     push @{$data->{undo}}, { git_commit =>  '???' };
 
-    INFO "[I] Creation du label $data->{tag}";
+    INFO "Creation du label $data->{tag}";
     ($e, $sout, $serr) = Migrations::Git::git('tag', $data->{tag});
     if ( $e ) {
-        FATAL "[F] Erreur lors de la creation du tag par 'git tag ".$data->{tag} . "'.";
+        FATAL "Erreur lors de la creation du tag par 'git tag ".$data->{tag} . "'.";
         for my $r ( split "\n", $sout ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        FATAL "[F]";
+        FATAL "";
         for my $r ( split "\n", $serr ) {
-            FATAL "[F] > $r";
+            FATAL "> $r";
         }
-        LOGDIE("[F] Fatal.");
+        LOGDIE("Fatal.");
     }
-    INFO "[I] Tag pose";
+    INFO "Tag pose";
     push @{$data->{undo}}, { git_tag =>  '???' };
 
 }
@@ -472,27 +472,27 @@ sub cleanup
         if ( $k eq 'stream' ) {
             my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $v);
             if ( $e ) {
-                ERROR "[E] Impossible de supprimer le stream $v.";
+                ERROR "Impossible de supprimer le stream $v.";
             } else {
-                INFO "[I] Stream $v supprime.";
+                INFO "Stream $v supprime.";
             }
             next;
         }
         if ( $k eq 'view' ) {
             my ($e,$r) = Migrations::Clearcase::cleartool('rmview ', '-tag ', $v);
             if ( $e ) {
-                ERROR "[E] Impossible de supprimer la vue $v.";
+                ERROR "Impossible de supprimer la vue $v.";
             } else {
-                INFO "[I] Vue $v supprimee.";
+                INFO "Vue $v supprimee.";
             }
             next;
         }
         if ( $k eq 'file' and $v =~ m/migrate_\w{6}\.pl/i ) {
             my $e = unlink($v);
             if ( $e != 1 ) {
-                ERROR "[E] Erreur lors de la suppression du script de migration $v.";
+                ERROR "Erreur lors de la suppression du script de migration $v.";
             } else {
-                INFO "[I] Fichier $v supprime.";
+                INFO "Fichier $v supprime.";
             }
             next;
         }
@@ -622,7 +622,7 @@ pod2usage(-exitval => 0, -verbose => 2)  if ($opt{man});
 #   
 if ( exists $opt{input} ) { 
     # GetOpt ensures $opt{input} has a value
-    open my $fh, '<', $opt{input} or die '[F] Cannot read ' . $opt{input} . " (from --input): $!. Abort.\n";
+    open my $fh, '<', $opt{input} or die 'Cannot read ' . $opt{input} . " (from --input): $!. Abort.\n";
     my $argv = ''; 
     while ( <$fh> ) { 
         # ignore comments and empty lines
@@ -644,11 +644,11 @@ if ( exists $opt{input} ) {
 my $ret = Migrations::Parameters::validate_arguments(\%opt, \%expected_args);
 if ( $ret ) {
     $! = $ret;
-    LOGDIE '[F] Error(s) with the arguments. Abort.';
+    LOGDIE 'Error(s) with the arguments. Abort.';
 }
 
 if ( -e $opt{logfile} ) {
-    WARN "[W] $opt{logfile} already exists. Will be appended.";
+    WARN "$opt{logfile} already exists. Will be appended.";
     Migrations::Migrate::init_logs(">>".$opt{logfile});
     INFO '
 
@@ -671,20 +671,24 @@ if ( exists $opt{bls} ) {
 # Let's go
 #------------------------------------------------
 
-INFO "[I] Demarrage de la migration Clearcase --> Git";
-INFO "[I] ";
-$data{parms} = '[I] Parametres d\'appel :
+INFO "Demarrage de la migration Clearcase --> Git";
+my ($y,$m,$d,$H,$M) = (localtime)[5,4,3,2,1];
+my $s = sprintf("%04d-%02d-%02d %02d:%02d", $y+100,$m+1,$d,$H,$M);
+$data{start_time} = $s;
+INFO "  ($s)";
+INFO "";
+$data{parms} = 'Parametres d\'appel :
 ';
 for my $k ( sort keys %opt ) {
     my $d = Data::Dumper->new([$opt{$k}], [$k]);
     $d->Indent(0);
     $d->Terse(1);
-    my $s = sprintf("[I]    %-12s %s\n",$k,$d->Dump);
+    my $s = sprintf("   %-12s %s\n",$k,$d->Dump);
     $data{parms} .= $s;
 }
 $data{parms} .= "[I]\n";
 
-my $s = sprintf("[I] %-15s %s\n",'OS courant',$^O);
+$s = sprintf("%-15s %s\n",'OS courant',$^O);
 $data{parms} .= $s . "[I]\n";
 
 INFO $data{parms};
@@ -745,13 +749,17 @@ finalize_git(\%opt, \%data);
 cleanup(\%opt, \%data);
 
 
-INFO "[I] That's all folks!";
+INFO "That's all folks!";
+($y,$m,$d,$H,$M) = (localtime)[5,4,3,2,1];
+$s = sprintf("%04d-%02d-%02d %02d:%02d", $y+100,$m+1,$d,$H,$M);
+$data{end_time} = $s;
+INFO "  ($s)";
 
 exit 0;
 
 END {
-    DEBUG "[D] To END\n";
-    DEBUG "[D] " . Dumper(\@{$data{undo}});
+    DEBUG "To END\n";
+    DEBUG Dumper(\@{$data{undo}});
 }
 
 __END__

@@ -33,7 +33,7 @@ sub init_logs
 
     Log::Log4perl->easy_init( { level    => $DEBUG,
                                 file     => $logfile,
-                                layout   => '%m%n',
+                                layout   => '[%p{1}][%d{HH:mm}] %m%n',
                               },
                             ); 
 
@@ -88,7 +88,7 @@ use Migrations::Migrate;
 
     print $fh '
 
-if ( -f '. $opt->{logfile} . ' ) {
+if ( -f "'. $opt->{logfile} . '" ) {
     Migrations::Migrate::init_logs(">>'. $opt->{logfile} . '");
 } else {
     # mainly if logfile is STDOUT or SDTERR
@@ -100,11 +100,11 @@ my $r = Migrations::Migrate::migrate_UCM("'. $opt->{repo}.'",';
     print $fh ');
 
 if ( $r == 0 ) {
-    INFO "[I] Migration succeeded.";
+    INFO "Migration succeeded.";
 } elsif ( $r == 1 ) {
-    WARN "[W] Migration succeeded with warnings.";
+    WARN "Migration succeeded with warnings.";
 } else {
-    ERROR "[E] Migration failed.";
+    ERROR "Migration failed.";
 }
 exit 0;
 
@@ -115,7 +115,7 @@ __END__
     $fh->close();
 
     if ( chmod(0755,$fh->filename) != 1 ) {
-        ERROR "[E] Cannot chmod 0755 $fh";
+        ERROR "Cannot chmod 0755 $fh";
         # ? return undef or not
         # if return undef, unlink the file
         unlink $fh->filename;
@@ -139,7 +139,7 @@ sub read_matching_file
     return undef if ( !defined $file and ref($file) ne '' );
 
     open my $fh, '<', $file or return $!;
-    DEBUG "[D] (read_matching_file) Opening [$file]";
+    DEBUG "(read_matching_file) Opening [$file]";
     while ( <$fh> ) {
         # clean comments and spaces at the beginning and end of the line
         s/^\s+//; s/#.*//; s/\s+//; 
@@ -149,7 +149,7 @@ sub read_matching_file
         $k =~ s/\s+$//;
         $v =~ s/^\s+//;
         $hash->{$k} = $v;
-        DEBUG "[D] (read_matching_file) h{$k} = [$v]";
+        DEBUG "(read_matching_file) h{$k} = [$v]";
     }
     close $fh;
     return 0;
@@ -203,8 +203,8 @@ sub empty_dirs
     return 2 if ( ($exclude_dot_git != 0) and ($exclude_dot_git != 1) );
 
     my @empty_dirs = File::Find::Rule->directoryempty->in($target);
-    DEBUG "[D] " . (scalar @empty_dirs) . " empty dirs found.";
-    DEBUG "[D]    $_" for @empty_dirs;
+    DEBUG "" . (scalar @empty_dirs) . " empty dirs found.";
+    DEBUG "   $_" for @empty_dirs;
 
     return 0 if ( scalar @empty_dirs  == 0 );
 
@@ -214,15 +214,15 @@ sub empty_dirs
     } else {
         @empty4git = map { File::Spec->catdir(File::Spec->splitdir($_), '.empty4git') } @empty_dirs;
     }
-    DEBUG "[D] " . (scalar @empty4git) . " .empty4git to be touched.";
-    DEBUG "[D]    $_" for @empty4git;
+    DEBUG "" . (scalar @empty4git) . " .empty4git to be touched.";
+    DEBUG "   $_" for @empty4git;
 
     return 0 if ( scalar @empty4git == 0 );
 
     my $count = touch(@empty4git);
-    DEBUG "[D] $count .empty4git touched.";
+    DEBUG "$count .empty4git touched.";
     if ( $count != scalar @empty4git ) {
-        WARN "[W] Seulement $count fichier(s) .empty4git cree(s) alors qu'on en attendait " . ( scalar @empty4git ) . ".";
+        WARN "Seulement $count fichier(s) .empty4git cree(s) alors qu'on en attendait " . ( scalar @empty4git ) . ".";
         return 1;
     }
 
@@ -255,15 +255,15 @@ sub migrate_UCM
     return 2 unless ( scalar @compCC );
     my $ctxt = Migrations::Clearcase::check_view_context();
     if ( !defined $ctxt or $ctxt ) {
-        ERROR "[E] Not in a view context.";
+        ERROR "Not in a view context.";
         return 2;
     }
-    DEBUG "[D] target = [$target]";
+    DEBUG "target = [$target]";
 
     my $matching = {};
     my $r = read_matching_file($matching, File::Spec->catfile( File::Spec->splitdir($target), 'matching_clearcase_git.txt'));
     while ( my ($k,$v) = each %$matching ) {
-        DEBUG "[D] matching{$k} = [$v]";
+        DEBUG "matching{$k} = [$v]";
     }
 
     my $dirty_bit = 0;
@@ -275,7 +275,7 @@ sub migrate_UCM
         my $dest_comp;
         if ( exists $matching->{$compCC} ) {
             $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $matching->{$compCC});
-            DEBUG "[D] [$compCC]=[$vob]/[$comp] ---> [$dest_comp]";
+            DEBUG "[$compCC]=[$vob]/[$comp] ---> [$dest_comp]";
         } else {
             $dest_comp = File::Spec->catdir(File::Spec->splitdir($target), $comp);
             if ( -d $dest_comp ) {
@@ -288,20 +288,20 @@ sub migrate_UCM
             }
             $matching->{$compCC} = basename($dest_comp);
             $dirty_bit++;
-            DEBUG "[D] [$compCC]=[$vob]/[$comp] ---> [$dest_comp]   (2)";
+            DEBUG "[$compCC]=[$vob]/[$comp] ---> [$dest_comp]   (2)";
         }
         my ($df, $d, $depth ) = dircopy($comp, $dest_comp);  # copy $comp/file ---> $dest_comp/file
         if ( defined $df ) {
-            INFO "[I] Migration of $compCC to $dest_comp :";
-            INFO "[I]     $df file(s) and directory(-ies)";
-            INFO "[I]     with $d directory(-ies)";
-            INFO "[I]     and depth of $depth level(s)";
-            INFO "[I]";
+            INFO "Migration of $compCC to $dest_comp :";
+            INFO "    $df file(s) and directory(-ies)";
+            INFO "    with $d directory(-ies)";
+            INFO "    and depth of $depth level(s)";
+            INFO "";
         } else {
             $return = 2 unless $return;
             push @error_comp, { $compCC => $dest_comp };
-            ERROR "[E] Error during the migration of component $compCC to $dest_comp.";
-            ERROR "[E] At least one file/directory cannot be copied.";
+            ERROR "Error during the migration of component $compCC to $dest_comp.";
+            ERROR "At least one file/directory cannot be copied.";
         }
     } # for $compCC
     empty_dirs($target);
@@ -311,23 +311,23 @@ sub migrate_UCM
         my $r = write_matching_file($matching, File::Spec->catfile( File::Spec->splitdir($target), 'matching_clearcase_git.txt') );
         if ( !defined $r or $r ne '0' ) {
             $return = 1 unless $return;
-            WARN "[W] Cannot save the matching file. $dirty_bit were added.";
-            WARN "[W] Here's the hash table:";
-            WARN "[W]    (in CC)  --> (in Git)";
+            WARN "Cannot save the matching file. $dirty_bit were added.";
+            WARN "Here's the hash table:";
+            WARN "   (in CC)  --> (in Git)";
             while ( my ($k,$v) = each %$matching ) {
-                WARN "[W]    $k  --> $v";
+                WARN "   $k  --> $v";
             }
-            WARN "[W] <-- END -->";
+            WARN "<-- END -->";
         }
     }
     if ( scalar @error_comp ) {
         $return = 2 unless $return;
         my $was = ( scalar @error_comp == 1 ) ? ' was' : 's were';
-        ERROR "[E] " . (scalar @error_comp) . " component$was not copied:";
+        ERROR "" . (scalar @error_comp) . " component$was not copied:";
         for my $c ( @error_comp ) {
-            ERROR "[E]     $c    not copied to $target";
+            ERROR "    $c    not copied to $target";
         }
-        ERROR "[E]";
+        ERROR "";
     }
 
     return $return;
