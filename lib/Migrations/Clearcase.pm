@@ -272,6 +272,29 @@ sub check_baseline
 
 
 #------------------------------------------------
+# check_view()
+#
+# Check if the view (tag) exists in current region Clearcase
+#
+# RETURN
+#     undef if cleartool cannot be found or no arg is provided
+#     0 if the view exists
+#     1 if not  (ie cleartool lsview -s xxx  does not know xxx)
+# 
+#------------------------------------------------
+sub check_view
+{
+    my $view = shift;
+
+    return undef unless ( defined $view );
+
+    my ($e) = cleartool('lsview -s ', $view);
+    return $e;
+}
+#------------------------------------------------
+
+
+#------------------------------------------------
 # compose_baseline()
 #
 # Compose the baseline using a X.Y.Z-SNAPSHOT notation
@@ -364,7 +387,7 @@ sub make_stream
     return undef unless ( defined $parent and defined $baseline );
     return undef unless ( defined check_stream($parent) );
 
-warn ">>\n";
+warn ">>\n>>IN make_stream\n";
     my $pvob = $parent;
     substr($pvob, 0, index($pvob,'@',0)+1) = '';
     # force $parent to be : stream:xxxx@PVOB
@@ -375,13 +398,14 @@ warn ">>\n";
     substr($new, index($new,'@',0)) = '';
     $new    =~ s/_(ass|dev|mainline|int)?$//i;
     $new   .= $suffix . '@' . $pvob;
-    warn ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
+warn ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
     my  $r = check_stream($new);
-warn ">> r = " .($r // 'undef' )."\n";
+warn ">> r = " .( $r  // 'undef (OK)' )."\n";
     return undef if ( defined check_stream($new) );
 warn ">> new = [$new]\n";
 
     my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
+warn ">> e   = [$e]\n";
     if (defined $e and $e == 0 ) {
         # success
         return $new;
@@ -405,8 +429,8 @@ warn ">> new = [$new]\n";
 #
 # IN:
 #    $tag: the name of the view
-#    $stgloc: the name of the storage loc
 #    $stream: the name of the stream (or undef)
+#    $stgloc: the name of the storage loc
 #
 # RETURN:
 #    undef if the view has not been created
@@ -417,13 +441,13 @@ warn ">> new = [$new]\n";
 #------------------------------------------------
 sub make_view
 {
-    my $tag    =  shift;
+    my $tag    = shift;
+    my $stream = shift // '';
     my $stgloc = shift // 'viewstgloc';
-    my $stream = shift;
 
     return undef unless ( defined $tag and defined $stgloc );
 
-    if ( defined $stream ) {
+    if ( $stream ne '' ) {
         return undef unless ( defined check_stream($stream) );
 
         # force $stream to be : stream:xxxx@PVOB
@@ -431,12 +455,12 @@ sub make_view
         $stream = "stream:$stream";
     }
 
-    my ($e,@r) = cleartool('mkview -tag ', $tag, (defined $stream ? '-stream '.$stream.' ' : '' ), ' -stgloc ', $stgloc);
+    my ($e,@r) = cleartool('mkview -tag ', $tag, ($stream ne '' ? '-stream '.$stream : '' ), ' -stgloc ', $stgloc);
     if (defined $e and $e == 0 ) {
         # success
         return $tag;
     } elsif ( defined $e and $e ) {
-        # cleartool mkstream complained
+        # cleartool mkview complained
         return wantarray ? (undef, @r) : undef;
     } else {
         # other error
