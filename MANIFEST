@@ -1,0 +1,10 @@
+Changes
+Makefile.PL
+MANIFEST                        This list of files
+README
+bin/migration_cc2git.pl
+lib/Migrations/Clearcase.pm
+lib/Migrations/Git.pm
+t/01-t_Migrations.t
+
+
