@@ -110,6 +110,8 @@ sub cleartool
     # Assume the arguments have been sanitized
     # (They should not come from the user)
     my $cmd = join ' ', $CLEARTOOL, @args;
+    # cannot use open with a list because redirect of STDERR does not work
+    # to improve, have a look on IPC::Open3 or IPC::Run or alike
     open my $ct, '-|', $cmd . ' 2>&1'      or LOGDIE "[F] Cannot execute $cmd. Abort.";
     my @ret = <$ct>;
     close $ct;

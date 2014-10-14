@@ -24,7 +24,7 @@ SKIP: {
     skip 'clearcase is not installed.', 5 if ( ! defined $ct);
     
     my $r = Migrations::Clearcase::cleartool('-booh');
-    ok($r eq 'cleartool: Error: Unrecognized command: "-booh"
+    is($r, 'cleartool: Error: Unrecognized command: "-booh"
 ', 'Migrations::Clearcase::cleartool(-booh)');
     my @r = Migrations::Clearcase::cleartool('-booh');
     ok(scalar @r == 2, 'Migrations::Clearcase::cleartool(-booh)');
