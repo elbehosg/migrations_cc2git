@@ -237,10 +237,9 @@ sub check_stream
     my $not_a_pvob = is_a_pvob($p);
     return undef if $not_a_pvob ;
     # $p is a PVOB
-
     # is $s a stream of $p?
     $s=~ s/^stream://;   # in case of...
-    my ($err,@desc) = cleartool('desc -s stream:'.$stream);
+    my ($err,@desc) = cleartool('desc -s stream:'.$s.'@'.$p);
     return undef if ( ! defined $err );
     return undef if $err ;
 
@@ -309,7 +308,7 @@ sub compose_baseline
     $stream = "stream:$stream";
 
     my ($e, @comps) = cleartool("lsstream -fmt '%[components]Np' " . $stream);
-    # should not fail as check_stream($stream) vvalidated it as stream:
+    # should not fail as check_stream($stream) validated it as stream:
     return undef unless defined $e;
     return undef if $e;
 
@@ -360,11 +359,12 @@ sub make_stream
 {
     my $parent   = shift;
     my $baseline = shift;
-    my $suffix   = shift // '_for_export_Dev';
+    my $suffix   = shift // '_for_export_Dev';   # the _Dev is due to the trigger that allow only a few suffices for the stream name
 
     return undef unless ( defined $parent and defined $baseline );
     return undef unless ( defined check_stream($parent) );
 
+warn ">>\n";
     my $pvob = $parent;
     substr($pvob, 0, index($pvob,'@',0)+1) = '';
     # force $parent to be : stream:xxxx@PVOB
@@ -372,9 +372,14 @@ sub make_stream
     $parent = "stream:$parent";
 
     my $new = $parent;
-    $new    =~ s/_(?:ass|dev|mainline|int)?$//i;
-    $new   .= $suffix;
+    substr($new, index($new,'@',0)) = '';
+    $new    =~ s/_(ass|dev|mainline|int)?$//i;
+    $new   .= $suffix . '@' . $pvob;
+    warn ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
+    my  $r = check_stream($new);
+warn ">> r = " .($r // 'undef' )."\n";
     return undef if ( defined check_stream($new) );
+warn ">> new = [$new]\n";
 
     my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
     if (defined $e and $e == 0 ) {
