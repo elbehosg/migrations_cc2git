@@ -209,7 +209,7 @@ sub check_remote_repo
 sub clone_repo
 {
     my $url = shift;
-    my $dirname = shift
+    my $dirname = shift;
     my $clone = shift;
     my $user = shift;
     my $pass = shift;
