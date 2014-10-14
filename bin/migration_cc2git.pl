@@ -244,12 +244,14 @@ INFO "[I] ";
 INFO "[I] Création du stream d'export";
 # on cree le stream (-ro)
 # on cree la vue sur le stream
-# on extrait le contenu de la vue
 
 # on teste l'etat de git
 # on se met dans le bon context git
 # on rince le répertoire
+
+# (on se met dans le contexte de la vue) on extrait le contenu de la vue
 # on copie recursivement depuis la vue vers le context git
+
 # on git add / git commit / git push
 
 # on implemente les differents steps :-)

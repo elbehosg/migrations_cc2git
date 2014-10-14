@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use lib 't/lib';
 use Test::Mock::Clearcase;
-use Test::More;# tests => 20;
+use Test::More tests => 57;
 
 use Data::Dumper;
 
@@ -117,7 +117,7 @@ ok(!defined $r[0], '04.07.05 - Migrations::Clearcase::make_stream("PARTICULIER_M
 $r = Migrations::Clearcase::make_stream('PARTICULIER_Mainline@/vobs/PVOB_MA','existing_new_name','_Mainline');
 ok(!defined $r, '04.07.06 - Migrations::Clearcase::make_stream("PARTICULIER_Mainline@/vobs/PVOB_MA","existing_new_name", "_Mainline")');
 $r = Migrations::Clearcase::make_stream('PARTICULIER_Mainline@/vobs/PVOB_MA', $valid_baseline );
-diag("r = [" .($r //'undef'). ']');
+#diag("r = [" .($r //'undef'). ']');
 ok((defined $r and ( $r eq 'stream:PARTICULIER_for_export_Dev@/vobs/PVOB_MA' )), '04.07.07 - Migrations::Clearcase::make_stream("PARTICULIER_Mainline@/vobs/PVOB_MA","valid_baseline")');
 
 # test make_view()

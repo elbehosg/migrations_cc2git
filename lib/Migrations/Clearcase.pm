@@ -387,7 +387,7 @@ sub make_stream
     return undef unless ( defined $parent and defined $baseline );
     return undef unless ( defined check_stream($parent) );
 
-warn ">>\n>>IN make_stream\n";
+DEBUG ">>\n>>IN make_stream\n";
     my $pvob = $parent;
     substr($pvob, 0, index($pvob,'@',0)+1) = '';
     # force $parent to be : stream:xxxx@PVOB
@@ -398,14 +398,14 @@ warn ">>\n>>IN make_stream\n";
     substr($new, index($new,'@',0)) = '';
     $new    =~ s/_(ass|dev|mainline|int)?$//i;
     $new   .= $suffix . '@' . $pvob;
-warn ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
+DEBUG ">> [$parent] [$pvob] [$suffix] new = [$new]\n";
     my  $r = check_stream($new);
-warn ">> r = " .( $r  // 'undef (OK)' )."\n";
+DEBUG ">> r = " .( $r  // 'undef (OK)' )."\n";
     return undef if ( defined check_stream($new) );
-warn ">> new = [$new]\n";
+DEBUG ">> new = [$new]\n";
 
     my ($e,@r) = cleartool('mkstream -in ', $parent, ' -readonly -baseline ', $baseline, $new);
-warn ">> e   = [$e]\n";
+DEBUG ">> e   = [$e]\n";
     if (defined $e and $e == 0 ) {
         # success
         return $new;

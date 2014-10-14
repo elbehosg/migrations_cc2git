@@ -23,6 +23,12 @@ our $VERSION = '0.0.1';
 #
 #------------------------------------------------
 
+Readonly::Scalar my $DEBUG => 0;
+sub _warn {
+    warn @_ if $DEBUG;
+}
+
+
 #
 # cleartool desc -fmt '%[components]NXp' stream:PARTICULIER_Mainline@/vobs/PVOB_MA
 #
@@ -299,9 +305,9 @@ SWITCH_DESC : {
         last;
     }
 
-#warn ">>\n";
-#warn ">> [$_]\n" for (@parms);
-#warn ">>\n";
+#_warn ">>\n";
+#_warn ">> [$_]\n" for (@parms);
+#_warn ">>\n";
 
     # a valid stream
     if ( $parms[0] eq '-s' and grep { $_ eq $parms[1] } streams() ) {
@@ -515,9 +521,9 @@ sub ct_mkstream
     my $e = 9999;
     my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_mkstream()';
 
-warn ">> IN  ct_mkstream\n";
+_warn ">> IN  ct_mkstream\n";
 
-#warn ">>>> $_\n" for @parms;
+#_warn ">>>> $_\n" for @parms;
 SWITCH_mkstream: {
     # fake baseline
     if ( $parms[4] eq 'fake_baseline' ) {
@@ -551,7 +557,7 @@ cleartool: Error: Unable to create stream "' . $parms[5] . '".
 
     };  # SWITCH_mkstream
 
-warn ">> OUT ct_mkstream\n";
+_warn ">> OUT ct_mkstream\n";
     return wantarray ? ($e, split (/\n/, $s)) : $s;
 }
 # end of ct_mkstream()
@@ -567,9 +573,9 @@ sub ct_mkview
     my $e = 9999;
     my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_mkview()';
 
-warn ">> IN  ct_mkview\n";
+_warn ">> IN  ct_mkview\n";
 
-#warn ">>>> $_\n" for @parms;
+#_warn ">>>> $_\n" for @parms;
 
 SWITCH_mkview: {
     if ( (scalar @parms != 4) and (scalar @parms != 6) ) {
@@ -670,7 +676,7 @@ Other:          : r-x
     last;
     };  # SWITCH_mkview
 
-warn ">> OUT ct_mkview\n";
+_warn ">> OUT ct_mkview\n";
     return wantarray ? ($e, split (/\n/, $s)) : $s;
 }
 # end of ct_mkview()
@@ -686,9 +692,9 @@ sub ct_rmview
     my $e = 9999;
     my $s = 'This case is not implemented in ' . __PACKAGE__ . '::ct_rmview()';
 
-warn ">> IN  ct_rmview\n";
+_warn ">> IN  ct_rmview\n";
 
-warn ">>>> $_\n" for @parms;
+_warn ">>>> $_\n" for @parms;
 
 SWITCH_rmview: {
     if (scalar @parms != 2) {
@@ -727,7 +733,7 @@ cleartool: Error: Unable to remove view "' . $tag . '".
 
     };  # SWITCH_rmview
 
-warn ">> OUT ct_rmview\n";
+_warn ">> OUT ct_rmview\n";
     return wantarray ? ($e, split (/\n/, $s)) : $s;
 }
 # end of ct_rmview()
