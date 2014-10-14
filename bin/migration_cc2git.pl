@@ -243,9 +243,101 @@ INFO "[I] ";
 
 INFO "[I] Création du stream d'export";
 # on cree le stream (-ro)
+my $stream4export = Migrations::Clearcase::make_stream($opt{stream}, (join ',', @baselines));
+if ( ! defined $stream4export ) {
+    LOGDIE "[F] Impossible de creer le stream Clearcase pour l'export. Abort.";
+}
+
 # on cree la vue sur le stream
+my $u = $ENV{USERNAME} // ( $ENV{LOGNAME} // ( $ENV{LOGNAME} // 'unknownuser' ) );
+my $s = substr($stream4export,7);
+$s = substr($s, 0, index($s,'@'));
+my $viewtag = Migrations::Clearcase::make_view($u . '_' . $s, $stream4export, 'viewstgloc');
+
+if ( ! defined $viewtag ) {
+    my $err = "[F] Impossible de creer la vue Clearcase pour l'export. Abort.";
+    my ($e,$r) = Migrations::Clearcase::cleartool('rmstream ', '-force ', $stream4export);
+    if ( $e ) {
+      $err .= "\n[F] Impossible de supprimer le stream d'export ($stream4export). Abort.";
+    }
+    LOGDIE $err;
+}
+
 
 # on teste l'etat de git
+INFO "[I] ";
+
+INFO "[I] Est-ce que git est installe ?";
+my $git = Migrations::Git::where_is_git();
+if ( !defined $git ) {
+    WARN "[W] Git n'est pas disponible.";
+} else {
+    INFO "[I] Git est $git";
+}
+
+INFO "[I] Est-ce que le depot local existe ?"
+if ( ! Migrations::Git::check_local_repo($opt{repo}) ) {
+    LOGDIE "[F] Le depot local $opt{repo} n'est pas un depot git. Abort.\n");
+}
+INFO "[I] Le depot $opt{repo} existe.";
+
+INFO "[I] Est-ce que la branche d'import existe ?";
+if ( ! Migrations::Git::check_branch($opt{repo}, $opt{branch}) ) {
+    LOGDIE "[F] Le depot local $opt{repo} ne comporte pas de branche $opt{branch}. Abort.\n");
+}
+INFO "[I] La branche $opt{branch} existe dans le depot $opt{repo}.";
+
+
+INFO "[I] Préparatif de la branche $opt{branch}.";
+my$old_cwd = File::Spec->curdir;
+chdir $opt{repo};
+Migration::Git::git('checkout', $opt{branch});
+my %cc2git;
+if ( -f 'matching_clearcase_git.txt' ) {
+    open my $f, '<', 'matching_clearcase_git.txt' or LOGDIE("Cannot open 'matching_clearcase_git.txt' although -f says it's here. Abort.");
+    while ( <$f> ) {
+        s/#.*//; s/^\s+//; s/\s+$//;
+        next unless length;
+        # VOB/component_clearcase | directory_git
+        my ($cc,$git) = split '|';
+        $git =~ s/^\s+//; $git =~ s/\s+$//;
+        next if (index($git,'/') != -1 ); # no slash, no pipe
+        remove_tree($git);
+    }
+    close $f;
+} else {
+    open my $f, '>', 'matching_clearcase_git.txt' or LOGDIE("Cannot create an empty 'matching_clearcase_git.txt'. Abort.");
+}
+
+# cleartool setview ...
+
+
+
+# git co branch
+# si matching_clearcase_git.txt existe
+#     pour chaque composant :
+#        rm -rf composant
+# sinon
+#    touch matching_clearcase_git.txt
+#
+# ct setview VUE
+#    pour chaque composant_CC
+#        si le composant_CC est dans matching_clearcase_git.txt
+#             dest_comp = le correspondant de composant_CC dans matching_clearcase_git.txt
+#        sinon
+#             dest_comp = composantCC sans la VOB
+#             si dest_comp existe deja : dest_comp <-- VOB_dest_comp
+#             ajouter l'association composantCC <--> dest_comp dans matching_clearcase_git.txt
+#        # assertion : on sait associer de facon unique composantCC et repertoire git
+#        #             dans le depot local on est sur la branche d'import
+#        cp composant_CC dans dest_comp
+#    exit
+#
+# git -A && git commit && git tag
+# git push
+#
+
+
 # on se met dans le bon context git
 # on rince le répertoire
 
@@ -255,9 +347,6 @@ INFO "[I] Création du stream d'export";
 # on git add / git commit / git push
 
 # on implemente les differents steps :-)
-
-
-
 
 
 
