@@ -26,23 +26,48 @@ SKIP: {
     skip 'git is not installed.', 9 if ( ! defined $git);
     
     my $r = Migrations::Git::git('--booh');
-    is($r, 'Unknown option: --booh
+    if ( $r eq 'Unknown option: --booh
 usage: git [--version] [--help] [-C <path>] [-c name=value]
            [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
            [-p|--paginate|--no-pager] [--no-replace-objects] [--bare]
            [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
            <command> [<args>]
-', 'Migrations::Git::git(--booh)');
+' ) {
+    ok(1, 'Migrations::Git::git(--booh)');
+    } elsif ( $r eq 'Unknown option: --booh
+usage: git [--version] [--help] [-c name=value]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p|--paginate|--no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           <command> [<args>]
+' ) {
+    ok(1, 'Migrations::Git::git(--booh)');
+    } else {
+    ok(0, 'Migrations::Git::git(--booh)');
+    }
+
     my @r = Migrations::Git::git('--booh');
     is($r[0], 0, 'Migrations::Git::git(-booh)');
     is($r[1], '', 'Migrations::Git::git(-booh)');
-    is($r[2], 'Unknown option: --booh
+    if ( $r[2] eq 'Unknown option: --booh
 usage: git [--version] [--help] [-C <path>] [-c name=value]
            [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
            [-p|--paginate|--no-pager] [--no-replace-objects] [--bare]
            [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
            <command> [<args>]
-', 'Migrations::Git::git(-booh)');
+' ) {
+    ok(1, 'Migrations::Git::git(-booh)');
+    } elsif ( $r[2] eq 'Unknown option: --booh
+usage: git [--version] [--help] [-c name=value]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p|--paginate|--no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           <command> [<args>]
+' ) {
+    ok(1, 'Migrations::Git::git(--booh)');
+    } else {
+    ok(0, 'Migrations::Git::git(--booh)');
+    }
 
     @r = Migrations::Git::git('--version');
     is($r[0], 0, 'Migrations::Git::git(--version)');
